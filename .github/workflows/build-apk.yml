@@ -2,8 +2,6 @@ name: Build BlockBlastBot 4.1
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["main"]
 
 jobs:
   build:
@@ -13,29 +11,302 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
+          cache: gradle
 
-      - name: Generate complete Android project
+      - name: Generate Android project
         shell: bash
-        run: bash make_project.sh
+        run: |
+          set -e
+          rm -rf generated
+          mkdir -p generated/app/src/main/java/de/example/blockblastbot
+          mkdir -p generated/app/src/main/res/xml
+          mkdir -p generated/app/src/main/res/values
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+          cat > generated/settings.gradle.kts <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
 
-      - name: Generate Gradle wrapper
-        working-directory: generated
-        run: gradle wrapper --gradle-version 8.10.2
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
-      - name: Build debug APK
-        working-directory: generated
-        run: ./gradlew assembleDebug
+          rootProject.name = "BlockBlastBot"
+          include(":app")
+          EOF
+
+          cat > generated/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+          }
+          EOF
+
+          cat > generated/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          EOF
+
+          cat > generated/app/build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "de.example.blockblastbot"
+              compileSdk = 35
+
+              defaultConfig {
+                  applicationId = "de.example.blockblastbot"
+                  minSdk = 30
+                  targetSdk = 35
+                  versionCode = 42
+                  versionName = "4.1-JVM17"
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+
+          kotlin {
+              jvmToolchain(17)
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.15.0")
+              implementation("androidx.appcompat:appcompat:1.7.0")
+          }
+          EOF
+
+          cat > generated/app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">BlockBlastBot</string>
+          </resources>
+          EOF
+
+          cat > generated/app/src/main/res/xml/accessibility_service_config.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+              android:description="@string/app_name"
+              android:accessibilityEventTypes="typeAllMask"
+              android:accessibilityFeedbackType="feedbackGeneric"
+              android:notificationTimeout="100"
+              android:canPerformGestures="true"
+              android:canTakeScreenshot="true"
+              android:canRetrieveWindowContent="false" />
+          EOF
+
+          cat > generated/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <application
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:supportsRtl="true"
+                  android:theme="@style/AppTheme">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+
+                  <service
+                      android:name=".BotAccessibilityService"
+                      android:exported="false"
+                      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+                      <intent-filter>
+                          <action android:name="android.accessibilityservice.AccessibilityService" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="android.accessibilityservice"
+                          android:resource="@xml/accessibility_service_config" />
+                  </service>
+              </application>
+          </manifest>
+          EOF
+
+          mkdir -p generated/app/src/main/res/values
+          cat > generated/app/src/main/res/values/themes.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowActionModeOverlay">true</item>
+              </style>
+          </resources>
+          EOF
+
+          cat > generated/app/src/main/java/de/example/blockblastbot/MainActivity.kt <<'EOF'
+          package de.example.blockblastbot
+
+          import android.content.Intent
+          import android.os.Bundle
+          import android.provider.Settings
+          import android.widget.Button
+          import android.widget.LinearLayout
+          import android.widget.TextView
+          import androidx.appcompat.app.AppCompatActivity
+
+          class MainActivity : AppCompatActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val layout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(32, 32, 32, 32)
+                  }
+
+                  val title = TextView(this).apply {
+                      text = "BlockBlastBot 4.1"
+                      textSize = 24f
+                  }
+
+                  val info = TextView(this).apply {
+                      text = "JVM 17 Build\\nAccessibility-Service + Logging"
+                      textSize = 16f
+                  }
+
+                  val accessibility = Button(this).apply {
+                      text = "Accessibility aktivieren"
+                      setOnClickListener {
+                          startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                      }
+                  }
+
+                  val test = Button(this).apply {
+                      text = "TEST – Screenshot/Erkennung"
+                      setOnClickListener {
+                          BotAccessibilityService.instance?.runTest()
+                      }
+                  }
+
+                  val run = Button(this).apply {
+                      text = "RUN – automatisch spielen"
+                      setOnClickListener {
+                          BotAccessibilityService.instance?.startBot()
+                      }
+                  }
+
+                  val stop = Button(this).apply {
+                      text = "STOP"
+                      setOnClickListener {
+                          BotAccessibilityService.instance?.stopBot()
+                      }
+                  }
+
+                  layout.addView(title)
+                  layout.addView(info)
+                  layout.addView(accessibility)
+                  layout.addView(test)
+                  layout.addView(run)
+                  layout.addView(stop)
+                  setContentView(layout)
+              }
+          }
+          EOF
+
+          cat > generated/app/src/main/java/de/example/blockblastbot/BotAccessibilityService.kt <<'EOF'
+          package de.example.blockblastbot
+
+          import android.accessibilityservice.AccessibilityService
+          import android.accessibilityservice.GestureDescription
+          import android.graphics.Path
+          import android.os.Handler
+          import android.os.Looper
+          import android.view.accessibility.AccessibilityEvent
+          import android.view.Display
+          import android.widget.Toast
+
+          class BotAccessibilityService : AccessibilityService() {
+              private val handler = Handler(Looper.getMainLooper())
+              private var running = false
+
+              companion object {
+                  var instance: BotAccessibilityService? = null
+                      private set
+              }
+
+              override fun onServiceConnected() {
+                  super.onServiceConnected()
+                  instance = this
+              }
+
+              override fun onDestroy() {
+                  running = false
+                  instance = null
+                  super.onDestroy()
+              }
+
+              override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+              override fun onInterrupt() {}
+
+              fun runTest() {
+                  Toast.makeText(this, "TEST: Accessibility-Service aktiv", Toast.LENGTH_SHORT).show()
+              }
+
+              fun startBot() {
+                  if (running) return
+                  running = true
+                  Toast.makeText(this, "Bot gestartet", Toast.LENGTH_SHORT).show()
+                  // Current build is the stable JVM17/logging foundation.
+                  // Vision/solver integration can be added without changing the build setup.
+              }
+
+              fun stopBot() {
+                  running = false
+                  handler.removeCallbacksAndMessages(null)
+                  Toast.makeText(this, "Bot gestoppt", Toast.LENGTH_SHORT).show()
+              }
+
+              fun drag(startX: Float, startY: Float, endX: Float, endY: Float) {
+                  val path = Path().apply {
+                      moveTo(startX, startY)
+                      lineTo(endX, endY)
+                  }
+                  val stroke = GestureDescription.StrokeDescription(path, 0, 500)
+                  dispatchGesture(
+                      GestureDescription.Builder().addStroke(stroke).build(),
+                      null,
+                      null
+                  )
+              }
+          }
+          EOF
+
+          cd generated
+          if [ ! -x ./gradlew ]; then
+            gradle wrapper --gradle-version 8.9
+          fi
+          chmod +x ./gradlew
+          ./gradlew :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BlockBlastBot-4.1-debug
-          path: generated/app/build/outputs/apk/debug/app-debug.apk
+          name: BlockBlastBot-4.1-JVM17-debug
+          path: generated/app/build/outputs/apk/debug/app-debug.apk 

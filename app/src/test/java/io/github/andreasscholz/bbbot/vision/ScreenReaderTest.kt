@@ -317,6 +317,29 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `reads a game that begins with a full row`() {
+        val screen = reader.read(load("start-with-full-row.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "XXXX....",
+                "XXX.XX.X",
+                "X...XXXX",
+                "X..XXXXX",
+                "..X.XX..",
+                ".XX.XXX.",
+                "XX.XX..X",
+                "XXXXXXXX",
+            ),
+            screen.board,
+        )
+        assertEquals(
+            listOf(Piece.of("XXX", "..X"), Piece.of(".X", "XX", "X."), Piece.of(".X", ".X", "XX")),
+            screen.tray.map { it.piece },
+        )
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

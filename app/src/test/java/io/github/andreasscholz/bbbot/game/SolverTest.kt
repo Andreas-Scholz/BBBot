@@ -102,6 +102,26 @@ class SolverTest {
     }
 
     @Test
+    fun `tells whether the offered pieces could clear a line`() {
+        val board = Board.parse(*Array(7) { "........" }, "XXXXX...")
+
+        assertTrue(solver.solve(board, listOf(Piece.of("XXX"))).clearPossible)
+        assertTrue(solver.solve(board, listOf(Piece.of("XX"), Piece.of("X"))).clearPossible)
+        assertFalse(solver.solve(board, listOf(Piece.of("XX"))).clearPossible)
+    }
+
+    @Test
+    fun `pieces that could not clear anything do not use up the combo`() {
+        // One block short of a full row, and a piece that cannot fill the gap.
+        val board = Board.parse(*Array(7) { "........" }, "XXXXXXX.")
+        val square = listOf(Piece.of("XX", "XX"))
+
+        // Had the combo counted as lost, there would be nothing to choose by; it counts as
+        // alive, so the plan is the same as with a piece to spare.
+        assertEquals(solver.solve(board, square, piecesSinceClear = 0), solver.solve(board, square, piecesSinceClear = 2))
+    }
+
+    @Test
     fun `identical pieces are placed once each`() {
         val square = Piece.of("XX", "XX")
         val plan = solver.solve(Board.EMPTY, listOf(square, square, square))

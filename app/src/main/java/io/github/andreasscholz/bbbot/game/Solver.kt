@@ -8,12 +8,15 @@ data class Placement(val pieceIndex: Int, val piece: Piece, val row: Int, val co
 /**
  * The placements to make, in order, and the board they lead to. [complete] is false when not
  * every offered piece could be placed, which means the game ends after these placements.
+ * [clearPossible] tells whether the offered pieces could clear a line at all, in any order and
+ * position, whether or not the plan does.
  */
 data class Plan(
     val placements: List<Placement>,
     val board: Board,
     val linesCleared: Int,
     val complete: Boolean,
+    val clearPossible: Boolean,
 )
 
 /**
@@ -29,24 +32,28 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
     /**
      * [piecesSinceClear] is the number of pieces placed since a line was last cleared. The game
      * ends a combo with the third such piece, and long combos are where the points are.
+     *
+     * Pieces that had no way of clearing a line seem not to count for that: watching the game,
+     * a combo went on after a round in which nothing could be cleared. So when the offered
+     * pieces cannot clear anything, the board they leave is rated as if the combo were as far
+     * along as before them, and the caller should not count them either (see
+     * [Plan.clearPossible]). Should the game be stricter than that, little is lost: the bot
+     * then tries to save a combo that is already gone, which is to start the next one quickly.
      */
     fun solve(board: Board, pieces: List<Piece>, piecesSinceClear: Int = 0): Plan {
         require(pieces.size <= MAX_PIECES) { "At most $MAX_PIECES pieces" }
-        val search = Search(pieces)
-        search.run(
-            bits = board.bits,
-            remaining = (1 shl pieces.size) - 1,
-            depth = 0,
-            reward = 0.0,
-            lines = 0,
-            gap = piecesSinceClear.coerceIn(0, COMBO_LENGTH),
-        )
+        val gap = piecesSinceClear.coerceIn(0, COMBO_LENGTH)
+        val search = Search(pieces, gap)
+        search.run(board.bits, remaining = (1 shl pieces.size) - 1, depth = 0, reward = 0.0, lines = 0, gap = gap)
         return search.result(board)
     }
 
     private class Candidate(val value: Double, val path: IntArray, val bits: Long, val lines: Int, val gap: Int)
 
-    private inner class Search(private val pieces: List<Piece>) {
+    private inner class Search(private val pieces: List<Piece>, private val startGap: Int) {
+        /** Whether any placement that was tried cleared a line. */
+        private var clearPossible = false
+
         private val masks = LongArray(pieces.size) { pieces[it].mask }
         private val widths = IntArray(pieces.size) { pieces[it].width }
         private val heights = IntArray(pieces.size) { pieces[it].height }
@@ -76,6 +83,7 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
                         val filled = bits or cells
                         val full = Board.fullLines(filled)
                         val cleared = if (full == 0L) 0 else Board.countLines(filled)
+                        if (cleared > 0) clearPossible = true
                         // Once the combo is gone there is nothing left to lose until the next clear.
                         val nextGap = if (cleared > 0) 0 else minOf(gap + 1, COMBO_LENGTH)
                         val combo = if (cleared == 0 && gap < COMBO_LENGTH) evaluator.comboReward(nextGap) else 0.0
@@ -123,8 +131,10 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
         }
 
         fun result(start: Board): Plan {
-            val best = candidates.maxByOrNull { it.value + evaluator.outlook(it.bits, it.gap) }
-                ?: return Plan(emptyList(), start, linesCleared = 0, complete = pieces.isEmpty())
+            // Without a way to clear anything, every candidate lost the same on the way, and the
+            // pieces do not count against the combo.
+            val best = candidates.maxByOrNull { it.value + evaluator.outlook(it.bits, if (clearPossible) it.gap else startGap) }
+                ?: return Plan(emptyList(), start, linesCleared = 0, complete = pieces.isEmpty(), clearPossible = false)
             var board = start
             val placements = best.path.map { step ->
                 val index = step / CELLS
@@ -133,7 +143,7 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
                 board = board.place(pieces[index], row, col).board
                 Placement(index, pieces[index], row, col)
             }
-            return Plan(placements, board, best.lines, complete = placements.size == pieces.size)
+            return Plan(placements, board, best.lines, complete = placements.size == pieces.size, clearPossible)
         }
     }
 

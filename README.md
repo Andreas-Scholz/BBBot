@@ -140,6 +140,13 @@ after it, as far as the combo still allows, clear a line. What the next piece ca
 off the board, as the share of all shapes that could clear something at once; the pieces
 after it can be set up for and are given a chance of at least 30 %.
 
+Pieces that had no way of clearing a line seem not to count against the combo: watching the
+game, a combo went on after a round in which nothing could be cleared. This is one
+observation, not a rule read anywhere. The bot plays by it, because being wrong costs
+little: it then tries to save a combo that is already gone, which amounts to starting the
+next one quickly. The simulator keeps the strict rule, so this cannot be tested there; only
+the points reached on the phone can show whether it helps.
+
 ### Strategies
 
 How much a combo is worth is the one setting that trades safety for points, and it is what

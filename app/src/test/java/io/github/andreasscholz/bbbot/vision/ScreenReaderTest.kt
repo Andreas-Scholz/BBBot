@@ -180,6 +180,28 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `reads a checkered piece in the color of the background`() {
+        val screen = reader.read(load("gingham-pink-piece.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "........",
+                "........",
+                ".......X",
+                ".......X",
+                "........",
+                "X...X...",
+                "XX..X.XX",
+                "XX...XXX",
+            ),
+            screen.board,
+        )
+        // The middle of the corner block lies on a stripe that looks like the background.
+        assertEquals(listOf(Piece.of("..X", "..X", "XXX")), screen.tray.map { it.piece })
+        assertEquals(listOf(2), screen.tray.map { it.slot })
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

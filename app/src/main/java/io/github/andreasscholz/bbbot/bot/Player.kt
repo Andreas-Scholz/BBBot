@@ -46,6 +46,7 @@ class Player(
         var lines = 0
         var pending: PendingMove? = null
         var unreadable = 0
+        var rejected = 0
         try {
             while (true) {
                 val shot = screenCapture.capture()
@@ -75,7 +76,14 @@ class Player(
                         continue
                     }
                     // A piece that slipped back into the tray leaves the board as it was.
-                    if (screen.board != move.before) moves++
+                    if (screen.board != move.before) {
+                        moves++
+                        rejected = 0
+                    } else if (++rejected == REJECTED_BEFORE_SAVE) {
+                        // The game keeps refusing the move, so the bot misreads something.
+                        val file = captureStore.save(shot, "rejected")
+                        Log.i(TAG, "The game refuses the move, saved ${file.name}")
+                    }
                     if (screen.board == move.expected) lines += move.lines
                     pending = null
                 }
@@ -146,6 +154,7 @@ class Player(
         const val RETRY_MS = 300L
 
         const val MAX_LOOKS = 6
+        const val REJECTED_BEFORE_SAVE = 3
 
         const val UNREADABLE_BEFORE_REPORT = 4
         const val UNREADABLE_BEFORE_SAVE = 8

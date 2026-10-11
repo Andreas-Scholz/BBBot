@@ -65,6 +65,21 @@ data class Weights(
     val lookahead: Double = 1.0,
     /** How many of the best ways to place the offered pieces get that look at their future. */
     val candidates: Int = 64,
+    /**
+     * How many of the very best ways are tried against whole rounds drawn at random, see
+     * [RoundSampler]; 0 switches that off.
+     */
+    val roundCandidates: Int = 16,
+    /** How many rounds each of them is tried against. */
+    val roundSamples: Int = 32,
+    /**
+     * By how much the share of rounds that cannot clear anything is multiplied to get the chance
+     * of losing the combo. That a round can clear a line does not mean that it is wise to, so
+     * the chance of losing the combo is higher than the share of rounds that cannot.
+     */
+    val roundDoubt: Double = 2.0,
+    /** For a next round whose pieces do not all fit, which ends the game. */
+    val roundDeath: Double = -200.0,
 )
 
 class HeuristicEvaluator(val weights: Weights = Weights()) {
@@ -101,23 +116,40 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
     fun lineReward(lines: Int): Double =
         if (lines == 0) 0.0 else weights.line * Scoring.worth(lines) + weights.clearingPiece
 
+    /**
+     * Rates a board by what happened when it was tried against whole rounds: the combo is lost
+     * with the share of rounds that could not clear anything, the game with the share whose
+     * pieces did not fit. This takes the place of [Outlook.comboRisk], which only guesses the
+     * first of the two.
+     */
+    fun roundOutlook(chances: RoundChances, comboLength: Int): Double =
+        comboWorth(comboLength) * minOf(1.0, weights.roundDoubt * (1 - chances.clear)) +
+            weights.roundDeath * (1 - chances.fit)
+
     /** What losing a combo of [length] clearing pieces costs; negative. */
     fun comboWorth(length: Int): Double =
         weights.comboBreak * minOf(1 + weights.comboGrowth * length, weights.comboCap)
 
     /**
-     * Rates what a board that ends a round has to expect from the next piece, on top of
-     * [evaluate]. It tries every shape in every position, which is much too slow to do for
-     * every board the solver comes across.
+     * What a board that ends a round has to expect from the next piece, on top of [evaluate].
      *
-     * The combo: it ends unless one of the three pieces of the next round clears a line. The
-     * share of shapes that could do so right away is the chance of the first of them, the two
-     * after it get at least [Weights.laterClear], and the expected loss is the worth of the
-     * combo, [comboLength] pieces long by now, times the chance of missing every time.
+     * [future] is how good the board still is after the next piece, on average over all shapes.
      *
-     * The future: how good the board still is after the next piece, on average over all shapes.
+     * [comboRisk] is the expected loss of the combo: it ends unless one of the three pieces of
+     * the next round clears a line. The share of shapes that could do so right away is the
+     * chance of the first of them, the two after it get at least [Weights.laterClear], and the
+     * loss is the worth of the combo times the chance of missing every time.
      */
-    fun outlook(bits: Long, comboLength: Int): Double {
+    class Outlook(val future: Double, val comboRisk: Double) {
+        val total: Double get() = future + comboRisk
+    }
+
+    /**
+     * Works out the [Outlook] of a board with a combo of [comboLength] pieces. It tries every
+     * shape in every position, which is much too slow to do for every board the solver comes
+     * across.
+     */
+    fun outlook(bits: Long, comboLength: Int): Outlook {
         val rateBoards = weights.lookahead != 0.0
         var clearing = 0
         var fitting = 0
@@ -163,9 +195,8 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
         val later = weights.laterClear * (1 - weights.needsNearLine * (1 - near))
         var miss = 1 - next
         repeat(ROUND - 1) { miss *= 1 - maxOf(next, later) }
-        var value = comboWorth(comboLength) * miss
-        if (fitting > 0) value += weights.lookahead * (sum / fitting - evaluate(bits))
-        return value
+        val future = if (fitting > 0) weights.lookahead * (sum / fitting - evaluate(bits)) else 0.0
+        return Outlook(future, comboWorth(comboLength) * miss)
     }
 
     companion object {

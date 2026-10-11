@@ -166,9 +166,11 @@ class Player(
                 }
                 lastTray = screen.tray.size
 
+                val solveStarted = SystemClock.elapsedRealtime()
                 val plan = withContext(Dispatchers.Default) {
                     solver.solve(screen.board, screen.tray.map { it.piece }, Combo(comboLength, clearedThisRound))
                 }
+                val solveMillis = SystemClock.elapsedRealtime() - solveStarted
                 if (!plan.complete) {
                     // Stopping ends the run, so a board misread in mid-animation must not cause it:
                     // the same verdict is needed on two looks in a row.
@@ -196,6 +198,7 @@ class Player(
                             previousAsExpected = previousAsExpected,
                             score = score,
                             scoreStable = scoreStable,
+                            solveMillis = solveMillis,
                         ),
                     )
                     onStatus(PlayStatus(PlayStatus.State.NO_MOVE, moves, lines, score))
@@ -224,6 +227,7 @@ class Player(
                         previousAsExpected = previousAsExpected,
                         score = score,
                         scoreStable = scoreStable,
+                        solveMillis = solveMillis,
                     ),
                 )
                 if (drag(screen, DragPlan.of(screen.geometry, screen.tray[placement.pieceIndex], placement))) {

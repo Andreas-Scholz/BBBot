@@ -118,6 +118,30 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `reads lines of five, which reach beyond a third of the screen`() {
+        val screen = reader.read(load("pink-lines-of-five.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "X..XXXXX",
+                "........",
+                "XXX.....",
+                "..X.....",
+                "..X...XX",
+                "X.X...XX",
+                "X.XX...X",
+                "X.X.....",
+            ),
+            screen.board,
+        )
+        assertEquals(
+            listOf(Piece.of("XXXXX"), Piece.of(".XX", "XX."), Piece.of("X", "X", "X", "X", "X")),
+            screen.tray.map { it.piece },
+        )
+        assertEquals(1818f, screen.tray[2].centerY, 4f)
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

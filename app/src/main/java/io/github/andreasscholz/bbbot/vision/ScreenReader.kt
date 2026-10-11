@@ -167,8 +167,11 @@ class ScreenReader {
 
         val pieces = mutableListOf<TrayPiece>()
         for (slot in 0 until SLOTS) {
-            val slotLeft = maxOf(shot.width * slot / SLOTS, EDGE_X + 1)
-            val slotRight = shot.width * (slot + 1) / SLOTS - 1
+            // The pieces sit closer together than thirds of the screen: a line of five in an outer
+            // slot reaches past a third. The borders lie halfway between the middles of the slots.
+            val slotLeft = if (slot == 0) EDGE_X + 1 else frame.left + (frame.width * SLOT_BORDERS[slot - 1]).toInt()
+            val slotRight =
+                if (slot == SLOTS - 1) shot.width - 1 else frame.left + (frame.width * SLOT_BORDERS[slot]).toInt() - 1
             val box = boundsOfForeground(scene, slotLeft, top, slotRight, bottom) ?: continue
 
             // A piece touching the border of the area is still flying in, or it is something else.
@@ -250,6 +253,9 @@ class ScreenReader {
         const val BLOCK_DISTANCE = 90
 
         const val SLOTS = 3
+
+        /** Where one slot ends and the next begins, as fractions of the board's width from its left. */
+        val SLOT_BORDERS = floatArrayOf(0.34f, 0.66f)
         const val MAX_PIECE_SIZE = 5
 
         /** Size of a cell of an offered piece compared to a cell of the board. */

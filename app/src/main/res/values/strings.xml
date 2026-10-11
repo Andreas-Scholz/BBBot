@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">BBBot</string>
+    <string name="app_name" translatable="false">BBBot</string>
     <string name="main_intro">BBBot plays Block Blast on its own. It reads the screen, decides where the pieces go and drags them there.</string>
+
+    <string name="main_service_title">1. Switch on the service</string>
+    <string name="main_service_off">BBBot needs its accessibility service to see the screen and to move the pieces. Switch on “BBBot” in the accessibility settings.</string>
+    <string name="main_service_on">The service is running.</string>
+    <string name="main_open_settings">Open accessibility settings</string>
+    <string name="main_game_title">2. Start the game</string>
+    <string name="main_game_text">A small BBBot panel appears on top of Block Blast.</string>
+    <string name="main_open_game">Open Block Blast</string>
+    <string name="main_game_missing">Block Blast is not installed.</string>
+
+    <string name="service_description">Lets BBBot play Block Blast: it takes screenshots while the game is in front and drags the pieces onto the board. BBBot does not read the contents of other apps and sends nothing anywhere.</string>
+
+    <string name="overlay_ready">BBBot is ready</string>
+    <string name="overlay_capture">Save a screenshot</string>
+    <string name="overlay_saved">Saved %1$s</string>
+    <string name="overlay_capture_failed">Screenshot failed</string>
 </resources>

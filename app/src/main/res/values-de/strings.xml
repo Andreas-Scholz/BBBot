@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="main_intro">BBBot spielt Block Blast von allein. Die App liest den Bildschirm, entscheidet, wohin die Steine gehören, und zieht sie dorthin.</string>
+
+    <string name="main_service_title">1. Dienst einschalten</string>
+    <string name="main_service_off">BBBot braucht seinen Bedienungshilfen-Dienst, um den Bildschirm zu sehen und die Steine zu bewegen. Schalte „BBBot“ in den Bedienungshilfen ein.</string>
+    <string name="main_service_on">Der Dienst läuft.</string>
+    <string name="main_open_settings">Bedienungshilfen öffnen</string>
+    <string name="main_game_title">2. Spiel starten</string>
+    <string name="main_game_text">Über Block Blast erscheint eine kleine BBBot-Leiste.</string>
+    <string name="main_open_game">Block Blast öffnen</string>
+    <string name="main_game_missing">Block Blast ist nicht installiert.</string>
+
+    <string name="service_description">Lässt BBBot Block Blast spielen: Der Dienst macht Screenshots, solange das Spiel im Vordergrund ist, und zieht die Steine aufs Spielfeld. BBBot liest keine Inhalte anderer Apps und sendet nichts irgendwohin.</string>
+
+    <string name="overlay_ready">BBBot ist bereit</string>
+    <string name="overlay_capture">Screenshot speichern</string>
+    <string name="overlay_saved">%1$s gespeichert</string>
+    <string name="overlay_capture_failed">Screenshot fehlgeschlagen</string>
 </resources>

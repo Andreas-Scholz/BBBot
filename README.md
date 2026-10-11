@@ -28,10 +28,30 @@ screenshot ──► recognition ──► solver ──► gestures
 | Feature                                   | State   |
 |-------------------------------------------|---------|
 | Project setup                             | done    |
-| Game model and solver                     | planned |
+| Game model and solver                     | done    |
 | Accessibility service, overlay, gestures  | planned |
 | Board and piece recognition               | planned |
 | Play loop                                 | planned |
+
+## The solver
+
+The board is a 64-bit number, one bit per cell, so placing a piece and finding full rows and
+columns are a handful of bit operations. For the pieces on offer the solver walks through
+every order and every position (at most 6 · 64³ sequences) and rates the board each sequence
+ends with:
+
+- empty cells are good,
+- edges between filled and empty cells are bad, which keeps the board compact,
+- single empty cells enclosed on three or four sides are bad,
+- room for a 3×3 square and for lines of five is good, because those are the pieces that end
+  games,
+- cleared rows and columns give a small bonus on top.
+
+If the pieces cannot all be placed, the solver places as many as it can.
+
+The weights were tuned by letting the solver play simulated games against uniformly drawn
+pieces (`Simulator` in the unit tests). The real game draws its pieces differently, so those
+games only rank settings against each other.
 
 ## Building
 

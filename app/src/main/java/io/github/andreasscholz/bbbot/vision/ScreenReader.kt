@@ -193,10 +193,11 @@ class ScreenReader {
         for (slot in 0 until SLOTS) {
             // The pieces sit closer together than thirds of the screen: a line of five in an outer
             // slot reaches past a third. The borders lie halfway between the middles of the slots.
-            val slotLeft = if (slot == 0) EDGE_X + 1 else frame.left + (frame.width * SLOT_BORDERS[slot - 1]).toInt()
-            val slotRight =
-                if (slot == SLOTS - 1) shot.width - 1 else frame.left + (frame.width * SLOT_BORDERS[slot]).toInt() - 1
-            val box = boundsOfForeground(scene, slotLeft, top, slotRight, bottom) ?: continue
+            // No piece reaches beyond the board, and the far edge of the screen is not searched
+            // because a background that gets darker towards it no longer matches the left edge.
+            val slotLeft = frame.left + (frame.width * SLOT_BORDERS[slot]).toInt()
+            val slotRight = frame.left + (frame.width * SLOT_BORDERS[slot + 1]).toInt() - 1
+            val box = boundsOfForeground(scene, slotLeft, top, slotRight, bottom, (cell * MIN_LINE).toInt()) ?: continue
 
             // A piece touching the border of the area is still flying in, or it is something else.
             if (box.top == top || box.bottom == bottom || box.left == slotLeft || box.right == slotRight) return null
@@ -222,8 +223,12 @@ class ScreenReader {
         return pieces
     }
 
-    /** The smallest box around the rows and columns of an area that clearly hold foreground. */
-    private fun boundsOfForeground(scene: Scene, left: Int, top: Int, right: Int, bottom: Int): Frame? {
+    /**
+     * The smallest box around the rows and columns of an area that hold at least [minPixels]
+     * pixels of foreground. A textured background scatters single foreground pixels everywhere,
+     * a piece fills at least the length of a cell.
+     */
+    private fun boundsOfForeground(scene: Scene, left: Int, top: Int, right: Int, bottom: Int, minPixels: Int): Frame? {
         val perColumn = IntArray(right - left + 1)
         val perRow = IntArray(bottom - top + 1)
         for (y in top..bottom) {
@@ -234,14 +239,14 @@ class ScreenReader {
                 }
             }
         }
-        val firstColumn = perColumn.indexOfFirst { it >= MIN_LINE_PIXELS }
-        val firstRow = perRow.indexOfFirst { it >= MIN_LINE_PIXELS }
+        val firstColumn = perColumn.indexOfFirst { it >= minPixels }
+        val firstRow = perRow.indexOfFirst { it >= minPixels }
         if (firstColumn < 0 || firstRow < 0) return null
         return Frame(
             left = left + firstColumn,
             top = top + firstRow,
-            right = left + perColumn.indexOfLast { it >= MIN_LINE_PIXELS },
-            bottom = top + perRow.indexOfLast { it >= MIN_LINE_PIXELS },
+            right = left + perColumn.indexOfLast { it >= minPixels },
+            bottom = top + perRow.indexOfLast { it >= minPixels },
         )
     }
 
@@ -284,7 +289,7 @@ class ScreenReader {
         const val SLOTS = 3
 
         /** Where one slot ends and the next begins, as fractions of the board's width from its left. */
-        val SLOT_BORDERS = floatArrayOf(0.34f, 0.66f)
+        val SLOT_BORDERS = floatArrayOf(0f, 0.34f, 0.66f, 1f)
         const val MAX_PIECE_SIZE = 5
 
         /** Size of a cell of an offered piece compared to a cell of the board. */
@@ -296,7 +301,8 @@ class ScreenReader {
 
         /** How far the box around a piece may be from whole cells; shadows make it larger. */
         const val SIZE_TOLERANCE = 0.4f
-        const val MIN_LINE_PIXELS = 6
+        /** The foreground a row or column of pixels needs to belong to a piece, in cells of the piece. */
+        const val MIN_LINE = 0.4f
 
         /** The sum of the red, green and blue differences of two colors. */
         fun distance(a: Int, b: Int): Int =

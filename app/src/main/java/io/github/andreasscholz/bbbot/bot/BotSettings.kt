@@ -22,7 +22,16 @@ class BotSettings(context: Context) {
         get() = KnownBoard.decode(preferences.getString(KEY_KNOWN_BOARD, null))
         set(value) = preferences.edit { putString(KEY_KNOWN_BOARD, value?.encode()) }
 
+    /**
+     * Whether the bot waits after every clear until the score stands still, so that the trace
+     * tells exactly what each piece earned. It makes the bot slower.
+     */
+    var measure: Boolean
+        get() = preferences.getBoolean(KEY_MEASURE, true)
+        set(value) = preferences.edit { putBoolean(KEY_MEASURE, value) }
+
     private companion object {
+        const val KEY_MEASURE = "measure"
         const val KEY_STRATEGY = "strategy"
         const val KEY_KNOWN_BOARD = "known_board"
     }

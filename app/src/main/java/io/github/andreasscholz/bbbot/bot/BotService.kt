@@ -38,6 +38,10 @@ class BotService : AccessibilityService() {
     private lateinit var settings: BotSettings
     private lateinit var gameLog: GameLog
     private var strategy = Strategy.BALANCED
+
+    // The first and the last score read off the screen in the current run.
+    private var firstScore: Long? = null
+    private var lastScore: Long? = null
     private var playing: Job? = null
     private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
 
@@ -81,14 +85,24 @@ class BotService : AccessibilityService() {
     private fun startPlaying() {
         strategy = settings.strategy
         val solver = Solver(HeuristicEvaluator(strategy.weights))
-        val player = Player(screenCapture, Finger(this), captureStore, solver, Trace(this), settings, onStatus = ::showStatus)
+        val trace = Trace(this)
+        val player = Player(screenCapture, Finger(this), captureStore, solver, trace, settings, onStatus = ::showStatus)
+        firstScore = null
         lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
         showStatus(lastStatus)
         overlay.setPlaying(true)
         val played = strategy
         val started = SystemClock.elapsedRealtime()
         suspend fun log(reason: String, screenshot: String) = gameLog.add(
-            played, reason, lastStatus.moves, lastStatus.lines, (SystemClock.elapsedRealtime() - started) / 1000, screenshot,
+            strategy = played,
+            reason = reason,
+            moves = lastStatus.moves,
+            lines = lastStatus.lines,
+            seconds = (SystemClock.elapsedRealtime() - started) / 1000,
+            scoreStart = firstScore,
+            scoreEnd = lastScore,
+            screenshot = screenshot,
+            trace = trace.name,
         )
         playing = scope.launch {
             try {
@@ -118,6 +132,10 @@ class BotService : AccessibilityService() {
 
     private fun showStatus(status: PlayStatus) {
         lastStatus = status
+        if (status.score != null) {
+            if (firstScore == null) firstScore = status.score
+            lastScore = status.score
+        }
         val text = when (status.state) {
             PlayStatus.State.PLAYING ->
                 getString(R.string.overlay_playing, status.moves, status.lines, getString(strategy.label))

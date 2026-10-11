@@ -36,6 +36,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Stop and take a picture at the end        | done    |
 | Lookahead and selectable strategies       | done    |
 | Combo rules measured in the game          | done    |
+| Score reading and full traces             | done    |
 
 ## Using it
 
@@ -53,19 +54,37 @@ screenshot ──► recognition ──► solver ──► gestures
 
 When the pieces no longer fit, the bot stops without placing what still would, and saves a
 screenshot of the board and the score (`final-<strategy>-…`), so the end of every game can be
-looked at afterwards. Every run is also added to `games.csv` in the same folder, with the
+looked at afterwards. Every run is also added to `runs.csv` in the same folder, with the
 strategy, the reason it ended (`no_room` or `stopped`), the pieces placed, the lines cleared,
-the seconds it took and the name of the screenshot. The score is only in the screenshot; the
-bot does not read it.
+the seconds it took, the score at its start and at its end, and the names of the screenshot
+and of the trace.
+
+"Measure exactly" in the app makes the bot wait after every clear until the score stands
+still. The game counts the score up over several seconds, so without that wait the trace
+cannot tell what a single piece earned. With it the bot needs five to six seconds per clear.
 
 ### Traces
 
-Every run also leaves a trace, `trace-<start>/moves.csv`, with a line per piece placed (the
-lines it cleared, whether the offered pieces could clear anything, the combo as the bot
-counts it, and how much of the combo symbol behind the score was on the screen) and a small
-picture of the score before each piece. It is there to find out how the game counts combos
-and points; the rules under "Combos" come from such a trace of 515 pieces. The newest twelve
-traces are kept.
+Every run leaves a trace, `trace-<start>/moves.csv`, with a line per piece placed and a small
+picture of the score before each piece. It is there to find out what the game pays for. A
+line holds, as things were before the piece:
+
+- the board, the pieces on offer and the one that is placed with its position; boards and
+  pieces are hexadecimal numbers with one bit per cell, the top left cell being the lowest,
+- what is expected of the piece: the lines it clears, and whether it empties the board,
+- whether the pieces on offer could clear anything at all,
+- the combo as the bot counts it, and whether the round has had its clear,
+- how much of the combo symbol behind the score is on the screen,
+- the score read off the screen, and whether the look before showed the same score.
+
+What a piece earned is the score of the next line minus the score of its own, when both
+stood still. The last line of a run that ended because the pieces did not fit has no piece;
+it holds the final score. The newest thirty traces are kept.
+
+The score is read by `ScoreReader`: the digits are what has the most common bright color in
+the strip where the score stands, and each is compared to a pattern made from screenshots
+with known scores. It gives no score rather than a doubtful one, and the play loop drops a
+score that fell or leapt.
 
 The camera button in the panel saves what the bot sees as a PNG in
 `Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone, where the `final-…`

@@ -8,6 +8,7 @@ import io.github.andreasscholz.bbbot.game.HeuristicEvaluator
 import io.github.andreasscholz.bbbot.game.Solver
 import io.github.andreasscholz.bbbot.vision.ComboIcon
 import io.github.andreasscholz.bbbot.vision.GameScreen
+import io.github.andreasscholz.bbbot.vision.ScoreReader
 import io.github.andreasscholz.bbbot.vision.ScreenReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 /** What the bot is doing, for the panel. */
-data class PlayStatus(val state: State, val moves: Int, val lines: Int) {
+data class PlayStatus(val state: State, val moves: Int, val lines: Int, val score: Long? = null) {
     enum class State {
         /** Pieces are being placed. */
         PLAYING,
@@ -69,6 +70,14 @@ class Player(
         var deadEnd: Board? = null
         var previousAsExpected = true
         val started = SystemClock.elapsedRealtime()
+        var round = 0
+        // The score as the last look showed it, and whether a piece that cleared something has
+        // been placed since the score was last seen standing still.
+        var lastScore: Long? = null
+        var highestScore = -1L
+        var scoreMoving = false
+        var scoreLooks = 0
+        val measure = settings.measure
         try {
             while (true) {
                 val shot = screenCapture.capture()
@@ -119,8 +128,24 @@ class Player(
                     }
                     if (screen.board == move.expected) lines += move.lines
                     previousAsExpected = screen.board == move.expected
+                    if (move.lines > 0) scoreMoving = true
                     pending = null
                 }
+
+                // The game counts the score up over a moment after a clear. To know what a piece
+                // earned, the next one waits until two looks in a row show the same score.
+                // A score that fell, or leapt by more than any piece can earn, was misread.
+                val score = ScoreReader.read(shot)?.takeIf { it >= highestScore && it <= highestScore + MAX_SCORE_STEP || highestScore < 0 }
+                if (score != null) highestScore = score
+                val scoreStable = score != null && score == lastScore
+                lastScore = score
+                if (measure && scoreMoving && !scoreStable && scoreLooks < MAX_SCORE_LOOKS) {
+                    scoreLooks++
+                    delay(SCORE_MS)
+                    continue
+                }
+                scoreMoving = false
+                scoreLooks = 0
 
                 if (comboLength < 0) {
                     // Started in the middle of a game: the symbol behind the score tells whether a
@@ -132,6 +157,7 @@ class Player(
                     // A new round begins. The one before it had to clear something to keep the combo.
                     if (!clearedThisRound) comboLength = 0
                     clearedThisRound = false
+                    round++
                 }
                 lastTray = screen.tray.size
 
@@ -147,25 +173,53 @@ class Player(
                         continue
                     }
                     Log.i(TAG, "Not all pieces fit after $moves moves:\n${screen.board}")
-                    onStatus(PlayStatus(PlayStatus.State.NO_MOVE, moves, lines))
+                    trace.add(
+                        shot,
+                        TraceStep(
+                            move = moves,
+                            seconds = (SystemClock.elapsedRealtime() - started) / 1000,
+                            round = round,
+                            board = screen.board,
+                            offered = screen.tray,
+                            placement = null,
+                            slot = -1,
+                            lines = 0,
+                            boardAfter = screen.board,
+                            clearPossible = plan.clearPossible,
+                            comboLength = comboLength,
+                            clearedThisRound = clearedThisRound,
+                            previousAsExpected = previousAsExpected,
+                            score = score,
+                            scoreStable = scoreStable,
+                        ),
+                    )
+                    onStatus(PlayStatus(PlayStatus.State.NO_MOVE, moves, lines, score))
                     return
                 }
                 deadEnd = null
                 val placement = plan.placements.first()
 
-                onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines))
+                onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score))
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
                 trace.add(
-                    shot = shot,
-                    move = moves,
-                    seconds = (SystemClock.elapsedRealtime() - started) / 1000,
-                    tray = screen.tray.size,
-                    cells = placement.piece.cellCount,
-                    lines = result.linesCleared,
-                    clearPossible = plan.clearPossible,
-                    comboLength = comboLength,
-                    clearedThisRound = clearedThisRound,
-                    previousAsExpected = previousAsExpected,
+                    shot,
+                    TraceStep(
+                        move = moves,
+                        seconds = (SystemClock.elapsedRealtime() - started) / 1000,
+                        round = round,
+                        board = screen.board,
+                        offered = screen.tray,
+                        placement = placement,
+                        slot = screen.tray[placement.pieceIndex].slot,
+                        lines = result.linesCleared,
+                        boardAfter = result.board,
+                        clearPossible = plan.clearPossible,
+                        comboLength = comboLength,
+                        clearedThisRound = clearedThisRound,
+                        previousAsExpected = previousAsExpected,
+                        score = score,
+                        scoreStable = scoreStable,
+                    ),
                 )
                 if (drag(screen, DragPlan.of(screen.geometry, screen.tray[placement.pieceIndex], placement))) {
                     pending = PendingMove(
@@ -236,6 +290,11 @@ class Player(
         const val UNKNOWN_COMBO = 1000
 
         const val MAX_LOOKS = 6
+
+        // Waiting for the score to stand still after a clear: how often to look, and how long between.
+        const val MAX_SCORE_STEP = 2_000_000L
+        const val MAX_SCORE_LOOKS = 30
+        const val SCORE_MS = 100L
         const val REJECTED_BEFORE_SAVE = 3
 
         const val UNREADABLE_BEFORE_REPORT = 4

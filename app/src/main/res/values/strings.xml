@@ -14,13 +14,13 @@
     <string name="main_strategy_title">3. Choose how to play</string>
     <string name="main_strategy_text">The choice applies the next time the bot is started.</string>
     <string name="main_measure_title">4. Measure exactly</string>
-    <string name="main_measure_text">Wait after every clear until the score stands still, so that the record shows what each piece earned. The bot then needs five to six seconds per clear. Applies the next time it is started.</string>
+    <string name="main_measure_text">Wait after every clear until the score stands still, so that the record shows what each piece earned. The bot then needs five to six seconds per clear. Switched off, it only waits for rare clears whose worth is not known yet. Applies the next time it is started.</string>
     <string name="strategy_safe">Safe</string>
-    <string name="strategy_safe_text">Lets a combo go rather than spoil the board. The longest games, the fewest points.</string>
+    <string name="strategy_safe_text">Lets a combo go sooner to keep the board open. The longest games in simulation.</string>
     <string name="strategy_balanced">Balanced</string>
     <string name="strategy_balanced_text">The setting that scored best in simulated games.</string>
     <string name="strategy_risky">Risky</string>
-    <string name="strategy_risky_text">Defends a long combo at a higher cost to the board. Games end sooner; in simulated games it did not score more.</string>
+    <string name="strategy_risky_text">Defends a long combo at a higher cost to the board. Games ended sooner and scored less in simulation.</string>
 
     <string name="service_description">Lets BBBot play Block Blast: it takes screenshots while the game is in front and drags the pieces onto the board. BBBot does not read the contents of other apps and sends nothing anywhere.</string>
 

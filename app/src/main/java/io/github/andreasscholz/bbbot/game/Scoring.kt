@@ -8,6 +8,13 @@ package io.github.andreasscholz.bbbot.game
  */
 object Scoring {
 
+    /**
+     * The points a single line earns per piece that cleared something since the combo began, as
+     * measured in two traces of one game: 76.10 both times, with 80 clears within a point of it.
+     * Where the number comes from is not known, and another game may have another.
+     */
+    const val STEP = 76.1
+
     private val WORTH = intArrayOf(0, 1, 2, 6, 12, 20, 30)
 
     /** How many single lines a clear of [lines] lines at once is worth. */

@@ -50,7 +50,8 @@ def read(folder):
         row['lines'] = int(row['lines']) if row['lines'] != '' else None
         row['cells'] = int(row['cells']) if row['cells'] != '' else None
         row['board'] = int(row['board'], 16)
-        row['offered'] = [int(p.split(':')[1], 16) for p in row['offered'].split(';') if p]
+        row['offered_slots'] = [(int(p.split(':')[0]), int(p.split(':')[1], 16)) for p in row['offered'].split(';') if p]
+        row['offered'] = [mask for _, mask in row['offered_slots']]
         row['all_clear'] = row['all_clear'] == 'true'
         row['clear_possible'] = row['clear_possible'] == 'true'
         row['combo_length'] = int(row['combo_length'])
@@ -80,6 +81,27 @@ def earned(rows):
         rows[end - 1]['blocks_before'] = blocks - rows[end - 1]['cells']
 
 
+def stretches(rows):
+    """Cuts a trace where the combo ended: after every round of three pieces that cleared nothing."""
+    by_round = defaultdict(list)
+    for row in rows:
+        if row['lines'] is not None:
+            by_round[row['round']].append(row)
+    lost = {number for number, pieces in by_round.items() if len(pieces) >= 3 and not any(p['lines'] for p in pieces)}
+    current = []
+    for row in rows:
+        if row['lines'] is None:
+            continue
+        if row['round'] in lost:
+            if current:
+                yield current
+            current = []
+        else:
+            current.append(row)
+    if current:
+        yield current
+
+
 def section(title):
     print()
     print(title)
@@ -104,44 +126,52 @@ def main(folders):
     section('What a clear is worth, by the number of lines')
     # The worth of a line grows with the combo. To compare clears made at different times, each
     # is divided by what a single line was worth at that moment: the straight line through the
-    # gains of the single-line clears of its trace, over the count of clears so far.
+    # gains of the single-line clears around it, over the count of clearing pieces. A round
+    # without a clear ends the combo and starts the count anew, so a trace is cut there.
     ratios = defaultdict(list)
+    steps = []
     for rows in traces:
-        clears = 0
-        points = []
-        for row in rows:
-            if row['lines']:
-                row['clear_index'] = clears
-                clears += 1
-                if row.get('earned') is not None and row['lines'] == 1 and not row['all_clear']:
-                    points.append((row['clear_index'], row['earned']))
-        if len(points) < 3:
-            continue
-        # A score taken for settled too early puts the gain of a clear into the next one. Such
-        # pairs show as a clear worth nothing next to one worth double; they are left out here.
-        middle = statistics.median(y for _, y in points)
-        sound = [p for p in points if 0.7 * middle <= p[1] <= 1.3 * middle]
-        if len(sound) < len(points):
-            print(f'{rows[0]["trace"]}: left out {len(points) - len(sound)} single clears with a gain far from the others')
-        points = sound
-        slope, intercept = statistics.linear_regression([p[0] for p in points], [p[1] for p in points])
-        off = [y - (intercept + slope * x) for x, y in points]
-        print(f'{rows[0]["trace"]}: a single line earned {intercept:,.1f} points at the start of the trace '
-              f'and {slope:+.2f} more with every piece that cleared something '
-              f'({len(points)} single clears, off the straight line by at most {max(abs(o) for o in off):.1f} points)')
-        if slope > 0:
-            print(f'    if a line is worth "combo x {slope:.1f}", the combo was {intercept / slope:.0f} long when the trace began')
-        for row in rows:
-            if row.get('earned') is None or not row['lines']:
+        for stretch in stretches(rows):
+            clears = 0
+            points = []
+            for row in stretch:
+                if row['lines']:
+                    row['clear_index'] = clears
+                    clears += 1
+                    if row.get('earned') is not None and row['lines'] == 1 and not row['all_clear']:
+                        points.append((row['clear_index'], row['earned']))
+            if len(points) < 4:
                 continue
-            single = intercept + slope * row['clear_index']
-            if single > 0 and row['earned'] > 0.5 * single:
-                key = (row['lines'], row['all_clear'])
-                ratios[key].append(row['earned'] / single)
+            # A score taken for settled too early puts the gain of a clear into the next one.
+            # Such pairs show as a clear worth nothing next to one worth double; a first straight
+            # line through everything shows which clears those are, and they are left out.
+            slope, intercept = statistics.linear_regression([p[0] for p in points], [p[1] for p in points])
+            sound = [p for p in points if abs(p[1] - (intercept + slope * p[0])) <= 0.2 * max(intercept + slope * p[0], 50)]
+            if len(sound) < 4:
+                continue
+            slope, intercept = statistics.linear_regression([p[0] for p in sound], [p[1] for p in sound])
+            off = max(abs(y - (intercept + slope * x)) for x, y in sound)
+            if off > 5:
+                continue
+            steps.append(slope)
+            print(f'{stretch[0]["trace"]} from piece {stretch[0]["move"]}: a single line earned {intercept:,.1f} points '
+                  f'and {slope:+.2f} more with every clearing piece ({len(sound)} single clears within {off:.1f} points'
+                  f'{", " + str(len(points) - len(sound)) + " left out" if len(sound) < len(points) else ""}); '
+                  f'combo {intercept / slope:.1f} long at its start')
+            for row in stretch:
+                if row.get('earned') is None or not row['lines']:
+                    continue
+                single = intercept + slope * row['clear_index']
+                ratio = row['earned'] / single
+                # Left out as above: gains that are half or one and a half of what they should be.
+                if abs(ratio - round(ratio)) < 0.1 and ratio > 0.5:
+                    ratios[(row['lines'], row['all_clear'])].append(ratio)
+    if steps:
+        print(f'The step per clearing piece: {statistics.median(steps):.2f} points (median of {len(steps)} stretches)')
     for (lines, all_clear), values in sorted(ratios.items()):
         what = f'{lines} line{"s" if lines > 1 else " "}' + (' emptying the board' if all_clear else '')
-        print(f'{what:32} {len(values):4} clears   worth {statistics.mean(values):5.2f} single lines '
-              f'(from {min(values):.2f} to {max(values):.2f})')
+        common = Counter(round(v) for v in values).most_common(3)
+        print(f'{what:32} {len(values):4} clears   worth ' + ', '.join(f'{k} single lines ({v}x)' for k, v in common))
 
     section('Rounds without a clear, and what the next clear earned')
     for rows in traces:
@@ -161,17 +191,30 @@ def main(folders):
                       f'before it {b["lines"]} line(s) earned {b["earned"]:,}, after it {a["lines"]} line(s) earned {a["earned"]:,}')
 
     section('The pieces the game hands out')
-    starts = [row for row in everything if len(row['offered']) == 3 and row['lines'] is not None]
-    seen = set()
+    # A piece is read anew before every piece of its round. The first look of a round may catch
+    # the pieces while they are still growing into place, so the last reading of each counts.
     rounds = []
-    for row in starts:
-        key = (row['trace'], row['round'])
-        if key not in seen:
-            seen.add(key)
-            rounds.append(row)
+    for rows in traces:
+        current = None
+        for row in rows:
+            if row['lines'] is None:
+                continue
+            if current is None or current['round'] != row['round']:
+                if len(row['offered_slots']) != 3:
+                    current = None
+                    continue
+                current = {'round': row['round'], 'board': row['board'], 'clear_possible': row['clear_possible'],
+                           'slots': dict(row['offered_slots']), 'first': dict(row['offered_slots'])}
+                rounds.append(current)
+            else:
+                current['slots'].update(row['offered_slots'])
+    for r in rounds:
+        r['offered'] = list(r['slots'].values())
+    misread = sum(1 for r in rounds if r['slots'] != r['first'])
     counts = Counter(mask for row in rounds for mask in row['offered'])
     total = sum(counts.values())
-    print(f'{len(rounds)} rounds, {total} pieces, {len(counts)} different shapes')
+    print(f'{len(rounds)} rounds, {total} pieces, {len(counts)} different shapes; '
+          f'in {misread} rounds a piece was read differently at first than later')
     for mask, count in counts.most_common():
         print(f'{100 * count / total:5.1f} %  {count:5}  {mask:>8x}  {shape(mask)}')
     if rounds:

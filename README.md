@@ -225,12 +225,12 @@ The solver plays by that:
   pieces clearing a line each are preferred to one clearing two.
 
 The bot counts the combo itself. Started in the middle of a game it can only see that a
-combo is running; it takes it to be 100 long and measures at the first clear: it waits until
-the score stands still before and after, and works out from the points how long the combo
-is. A count it kept from the start of a combo is not checked that way. Early in a game the
-measurement gave 61 where 45 pieces had cleared something and 64 lines had been cleared,
-which does not fit the step per piece measured late in a game; how the worth of a line grows
-at the start of a game is still open.
+combo is running, and takes it to be 100 long. Working the length out from what a clear
+earns was tried and dropped: the score counts up late and in stages, so there is no telling
+when it has taken a clear in, and the results were nonsense (a combo of 1 right after sixty
+clears). The same measurement early in a game gave 61 where 45 pieces had cleared something
+and 64 lines had been cleared, which does not fit the step per piece measured late in a
+game; how the worth of a line grows at the start of a game is still open.
 
 New pieces grow into place, and a look in the middle of that reads them wrong: in traces one
 round in twelve began with such a reading, and one of them cost a combo of a thousand,

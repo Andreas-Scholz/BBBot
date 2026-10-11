@@ -31,7 +31,15 @@ data class GameScreen(val geometry: BoardGeometry, val board: Board, val tray: L
  * pieces lie below the board, one in each third of the screen. It was developed against the
  * wooden and the marble theme.
  */
-class ScreenReader {
+class ScreenReader(
+    /** Told why a screenshot was not taken for a game, to find out what a new theme breaks. */
+    private val onReject: (String) -> Unit = {},
+) {
+
+    private fun <T> reject(reason: String): T? {
+        onReject(reason)
+        return null
+    }
 
     /** Returns null when the screenshot does not show a game waiting for a move. */
     fun read(shot: Screenshot): GameScreen? {
@@ -59,6 +67,24 @@ class ScreenReader {
     private class Scene(val shot: Screenshot) {
         private val tolerance: Int
 
+        /**
+         * The background color of every row: the median of the left edge a few rows up and down.
+         * A single pixel will not do, because a vein of marble that crosses the edge would turn
+         * its whole row into foreground.
+         */
+        private val background = IntArray(shot.height) { y ->
+            val from = (y - EDGE_REACH).coerceAtLeast(0)
+            val to = (y + EDGE_REACH).coerceAtMost(shot.height - 1)
+            val count = to - from + 1
+            val red = IntArray(count) { shot[EDGE_X, from + it] shr 16 and 0xFF }
+            val green = IntArray(count) { shot[EDGE_X, from + it] shr 8 and 0xFF }
+            val blue = IntArray(count) { shot[EDGE_X, from + it] and 0xFF }
+            red.sort()
+            green.sort()
+            blue.sort()
+            (red[count / 2] shl 16) or (green[count / 2] shl 8) or blue[count / 2]
+        }
+
         init {
             val distances = IntArray((shot.height - TEXTURE_REACH) / TEXTURE_STEP) {
                 val y = it * TEXTURE_STEP
@@ -69,7 +95,7 @@ class ScreenReader {
             tolerance = (typical * TEXTURE_FACTOR).toInt().coerceIn(MIN_TOLERANCE, MAX_TOLERANCE)
         }
 
-        fun isForeground(x: Int, y: Int): Boolean = distance(shot[x, y], shot[EDGE_X, y]) > tolerance
+        fun isForeground(x: Int, y: Int): Boolean = distance(shot[x, y], background[y]) > tolerance
     }
 
     private class Frame(val left: Int, val top: Int, val right: Int, val bottom: Int) {
@@ -106,7 +132,7 @@ class ScreenReader {
             }
         }
         val height = bestBottom - bestTop + 1
-        if (height < shot.width * MIN_BOARD_WIDTH) return null
+        if (height < shot.width * MIN_BOARD_WIDTH) return reject("no board: the tallest band is $height pixels")
 
         val rows = height / SCAN_STEP
         var left = -1
@@ -124,7 +150,9 @@ class ScreenReader {
             }
         }
         val frame = Frame(left, bestTop, right, bestBottom)
-        if (left < 0 || abs(frame.width - frame.height) > frame.width * SQUARE_TOLERANCE) return null
+        if (left < 0 || abs(frame.width - frame.height) > frame.width * SQUARE_TOLERANCE) {
+            return reject("board is not square: ${frame.width} x ${frame.height}")
+        }
         return frame
     }
 
@@ -178,7 +206,7 @@ class ScreenReader {
             if (distance(colors[cell], empty) > BLOCK_DISTANCE) bits = bits or (1L shl cell)
         }
         // Rows and columns that are still full are in the middle of being cleared.
-        if (Board.fullLines(bits) != 0L) return null
+        if (Board.fullLines(bits) != 0L) return reject("board has full lines:\n${Board(bits)}")
         return Board(bits)
     }
 
@@ -186,7 +214,7 @@ class ScreenReader {
         val shot = scene.shot
         val top = frame.bottom + (frame.height * TRAY_TOP).toInt()
         val bottom = minOf(shot.height - 1, frame.bottom + (frame.height * TRAY_BOTTOM).toInt())
-        if (bottom <= top) return null
+        if (bottom <= top) return reject("no room for pieces below the board")
         val cell = geometry.cellSize * TRAY_SCALE
 
         val pieces = mutableListOf<TrayPiece>()
@@ -200,12 +228,16 @@ class ScreenReader {
             val box = boundsOfForeground(scene, slotLeft, top, slotRight, bottom, (cell * MIN_LINE).toInt()) ?: continue
 
             // A piece touching the border of the area is still flying in, or it is something else.
-            if (box.top == top || box.bottom == bottom || box.left == slotLeft || box.right == slotRight) return null
+            if (box.top == top || box.bottom == bottom || box.left == slotLeft || box.right == slotRight) {
+                return reject("slot $slot: piece touches the border of its area")
+            }
             val cols = (box.width / cell).roundToInt()
             val rows = (box.height / cell).roundToInt()
-            if (cols !in 1..MAX_PIECE_SIZE || rows !in 1..MAX_PIECE_SIZE) return null
-            if (abs(box.width - cols * cell) > cell * SIZE_TOLERANCE) return null
-            if (abs(box.height - rows * cell) > cell * SIZE_TOLERANCE) return null
+            val size = "${box.width} x ${box.height} pixels with cells of $cell"
+            if (cols !in 1..MAX_PIECE_SIZE || rows !in 1..MAX_PIECE_SIZE) return reject("slot $slot: piece of $size")
+            if (abs(box.width - cols * cell) > cell * SIZE_TOLERANCE || abs(box.height - rows * cell) > cell * SIZE_TOLERANCE) {
+                return reject("slot $slot: not whole cells, $size")
+            }
 
             val cells = mutableListOf<Pair<Int, Int>>()
             for (row in 0 until rows) {
@@ -213,9 +245,9 @@ class ScreenReader {
                     if (holdsBlock(scene, box.left + col * cell, box.top + row * cell, cell)) cells += row to col
                 }
             }
-            val piece = Piece.ofCells(cells.ifEmpty { return null })
+            val piece = Piece.ofCells(cells.ifEmpty { return reject("slot $slot: no blocks in the box") })
             // Every row and column of the box must hold a block, or the box was not a piece.
-            if (piece.width != cols || piece.height != rows) return null
+            if (piece.width != cols || piece.height != rows) return reject("slot $slot: box of $cols x $rows cells holds\n$piece")
             pieces += TrayPiece(slot, piece, box.left + cols * cell / 2, box.top + rows * cell / 2)
         }
         return pieces
@@ -269,6 +301,9 @@ class ScreenReader {
     private companion object {
         /** Column that is taken to show the background in every row. */
         const val EDGE_X = 4
+
+        /** How many rows up and down the background color of a row is taken from. */
+        const val EDGE_REACH = 8
 
         // The texture of the background is judged by pixels this far apart, every few rows.
         const val TEXTURE_REACH = 25

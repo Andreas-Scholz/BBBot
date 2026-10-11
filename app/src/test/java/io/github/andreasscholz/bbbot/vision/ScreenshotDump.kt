@@ -19,7 +19,7 @@ class ScreenshotDump {
         val directory = System.getenv("BBBOT_SCREENSHOTS")
         assumeTrue("BBBOT_SCREENSHOTS is not set", directory != null)
 
-        val reader = ScreenReader()
+        val reader = ScreenReader(onReject = { println("rejected: $it") })
         for (file in File(directory).listFiles { file -> file.extension == "png" }.orEmpty().sorted()) {
             val image = ImageIO.read(file)
             val pixels = image.getRGB(0, 0, image.width, image.height, null, 0, image.width)

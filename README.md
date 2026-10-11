@@ -57,6 +57,12 @@ strategy, the reason it ended (`no_room` or `stopped`), the pieces placed, the l
 the seconds it took and the name of the screenshot. The score is only in the screenshot; the
 bot does not read it.
 
+Every run also leaves a trace, `trace-<start>/moves.csv`, with a line per piece placed (the
+lines it cleared, whether the offered pieces could clear anything, the bot's count for the
+combo, and how much of the combo symbol behind the score was on the screen) and a small
+picture of the score before each piece. It is there to find out how the game counts combos
+and points. The newest twelve traces are kept.
+
 The camera button in the panel saves what the bot sees as a PNG in
 `Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone, where the `final-…`
 pictures go as well. The bot also saves a picture there on its own when it cannot make sense

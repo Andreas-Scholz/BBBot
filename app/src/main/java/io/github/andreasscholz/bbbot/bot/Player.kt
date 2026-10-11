@@ -1,5 +1,6 @@
 package io.github.andreasscholz.bbbot.bot
 
+import android.os.SystemClock
 import android.util.Log
 import io.github.andreasscholz.bbbot.game.Board
 import io.github.andreasscholz.bbbot.game.Solver
@@ -36,6 +37,7 @@ class Player(
     private val finger: Finger,
     private val captureStore: CaptureStore,
     private val solver: Solver,
+    private val trace: Trace,
     private val onStatus: (PlayStatus) -> Unit,
 ) {
     private var rejection = ""
@@ -56,6 +58,8 @@ class Player(
         var piecesSinceClear = 0
         // The board on which the pieces did not fit at the last look.
         var deadEnd: Board? = null
+        var previousAsExpected = true
+        val started = SystemClock.elapsedRealtime()
         try {
             while (true) {
                 val shot = screenCapture.capture()
@@ -97,6 +101,7 @@ class Player(
                         Log.i(TAG, "The game refuses the move, saved ${file.name}")
                     }
                     if (screen.board == move.expected) lines += move.lines
+                    previousAsExpected = screen.board == move.expected
                     pending = null
                 }
 
@@ -120,6 +125,17 @@ class Player(
 
                 onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines))
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
+                trace.add(
+                    shot = shot,
+                    move = moves,
+                    seconds = (SystemClock.elapsedRealtime() - started) / 1000,
+                    tray = screen.tray.size,
+                    cells = placement.piece.cellCount,
+                    lines = result.linesCleared,
+                    clearPossible = plan.clearPossible,
+                    piecesSinceClear = piecesSinceClear,
+                    previousAsExpected = previousAsExpected,
+                )
                 if (drag(screen, DragPlan.of(screen.geometry, screen.tray[placement.pieceIndex], placement))) {
                     pending = PendingMove(
                         before = screen.board,

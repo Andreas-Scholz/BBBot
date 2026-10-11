@@ -81,7 +81,7 @@ class BotService : AccessibilityService() {
     private fun startPlaying() {
         strategy = settings.strategy
         val solver = Solver(HeuristicEvaluator(strategy.weights))
-        val player = Player(screenCapture, Finger(this), captureStore, solver, onStatus = ::showStatus)
+        val player = Player(screenCapture, Finger(this), captureStore, solver, Trace(this), onStatus = ::showStatus)
         lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
         showStatus(lastStatus)
         overlay.setPlaying(true)

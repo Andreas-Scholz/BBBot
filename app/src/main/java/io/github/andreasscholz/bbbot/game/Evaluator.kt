@@ -38,7 +38,7 @@ data class Weights(
      * of the combo after the board had been emptied a few times; how exactly is being measured,
      * and until then this is set to make it happen often enough to measure.
      */
-    val emptiedBoard: Double = 25.0,
+    val emptiedBoard: Double = 250.0,
     /**
      * What a combo is worth when it begins, as a loss when it ends. The more a combo counts,
      * the more of the board's good shape is given up to keep clearing lines.

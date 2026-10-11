@@ -12,6 +12,8 @@
     <string name="main_game_missing">Block Blast ist nicht installiert.</string>
     <string name="main_strategy_title">3. Spielweise wählen</string>
     <string name="main_strategy_text">Die Wahl gilt ab dem nächsten Start des Bots.</string>
+    <string name="main_measure_title">4. Genau messen</string>
+    <string name="main_measure_text">Nach jedem Abbau warten, bis der Punktestand steht, damit das Protokoll zeigt, was jeder Stein eingebracht hat. Der Bot braucht dann fünf bis sechs Sekunden pro Abbau. Gilt ab dem nächsten Start.</string>
     <string name="strategy_safe">Sicher</string>
     <string name="strategy_safe_text">Hält das Feld offen und gibt eine Combo früh auf. Lange Partien, weniger Punkte pro Stein.</string>
     <string name="strategy_balanced">Ausgewogen</string>

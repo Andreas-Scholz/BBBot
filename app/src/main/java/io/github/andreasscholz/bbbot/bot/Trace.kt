@@ -3,19 +3,54 @@ package io.github.andreasscholz.bbbot.bot
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.core.graphics.scale
+import io.github.andreasscholz.bbbot.game.Board
+import io.github.andreasscholz.bbbot.game.Placement
 import io.github.andreasscholz.bbbot.vision.ComboIcon
 import io.github.andreasscholz.bbbot.vision.Screenshot
+import io.github.andreasscholz.bbbot.vision.TrayPiece
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
- * A record of one run, move by move: `captures/trace-<start>/moves.csv` with a line per piece
+ * What the bot saw and did at one piece, for the trace. Everything is as it was before the
+ * piece was placed, except what is said to be expected of it.
+ */
+class TraceStep(
+    /** The number of the piece in the run, from 0. */
+    val move: Int,
+    val seconds: Long,
+    /** The number of the round of three pieces in the run, from 1. */
+    val round: Int,
+    val board: Board,
+    val offered: List<TrayPiece>,
+    /** The piece that is placed and where; null in the last line of a run, where nothing is placed. */
+    val placement: Placement?,
+    val slot: Int,
+    /** The lines the piece is expected to clear, and the board expected after it. */
+    val lines: Int,
+    val boardAfter: Board,
+    /** Whether the offered pieces could clear a line at all. */
+    val clearPossible: Boolean,
+    /** The combo as the bot counts it. */
+    val comboLength: Int,
+    val clearedThisRound: Boolean,
+    /** Whether the piece before this one ended up where it was meant to. */
+    val previousAsExpected: Boolean,
+    /** The score on the screen, if it could be read, and whether the look before showed the same. */
+    val score: Long?,
+    val scoreStable: Boolean,
+)
+
+/**
+ * A record of one run, piece by piece: `captures/trace-<start>/moves.csv` with a line per piece
  * placed, and next to it a small picture of the score as it was before that piece. It exists to
- * find out how the game counts combos and points, which it does not tell: the lines say what
- * the bot did, the pictures show what the game made of it.
+ * find out what the game pays for: the difference between the scores of two lines is what the
+ * piece of the first line earned, and the line says what that piece did. Boards and pieces are
+ * written as hexadecimal numbers with one bit per cell, the top left cell being the lowest.
  */
 class Trace(context: Context) {
 
@@ -23,35 +58,44 @@ class Trace(context: Context) {
     private val directory = File(root, "trace-${LocalDateTime.now().format(START_TIME)}")
     private val moves = File(directory, "moves.csv")
 
-    /**
-     * Adds the piece about to be placed. [shot] is the screen before it, [move] its number in
-     * the run, [tray] the number of pieces on offer, [cells] its blocks, [lines] the lines it is
-     * expected to clear, [clearPossible] whether the pieces on offer could clear anything,
-     * [comboLength] and [clearedThisRound] the combo as the bot counts it and
-     * [previousAsExpected] whether the piece before this one ended up where it was meant to.
-     */
-    suspend fun add(
-        shot: Screenshot,
-        move: Int,
-        seconds: Long,
-        tray: Int,
-        cells: Int,
-        lines: Int,
-        clearPossible: Boolean,
-        comboLength: Int,
-        clearedThisRound: Boolean,
-        previousAsExpected: Boolean,
-    ) = withContext(Dispatchers.IO) {
+    /** The name of the folder of this trace. */
+    val name: String get() = directory.name
+
+    suspend fun add(shot: Screenshot, step: TraceStep) = withContext(Dispatchers.IO) {
         if (!directory.exists()) {
             directory.mkdirs()
-            moves.writeText("move,seconds,tray,cells,lines,clear_possible,combo_length,cleared_this_round,previous_as_expected,icon,picture\n")
+            moves.writeText(HEADER + "\n")
             prune()
         }
-        val picture = "%05d.jpg".format(move)
-        val icon = "%.3f".format(java.util.Locale.ROOT, ComboIcon.share(shot))
-        moves.appendText("$move,$seconds,$tray,$cells,$lines,$clearPossible,$comboLength,$clearedThisRound,$previousAsExpected,$icon,$picture\n")
+        val placement = step.placement
+        val picture = if (placement != null) "%05d.jpg".format(step.move) else "end.jpg"
+        val fields = listOf(
+            step.move,
+            step.seconds,
+            step.round,
+            hex(step.board.bits),
+            step.offered.joinToString(";") { "${it.slot}:${hex(it.piece.mask)}" },
+            if (placement != null) step.slot else "",
+            placement?.let { hex(it.piece.mask) } ?: "",
+            placement?.row ?: "",
+            placement?.col ?: "",
+            placement?.piece?.cellCount ?: "",
+            if (placement != null) step.lines else "",
+            if (placement != null) step.boardAfter == Board.EMPTY else "",
+            step.clearPossible,
+            step.comboLength,
+            step.clearedThisRound,
+            step.previousAsExpected,
+            "%.3f".format(Locale.ROOT, ComboIcon.share(shot)),
+            step.score ?: "",
+            step.scoreStable,
+            picture,
+        )
+        moves.appendText(fields.joinToString(",") + "\n")
         savePicture(shot, File(directory, picture))
     }
+
+    private fun hex(bits: Long): String = java.lang.Long.toHexString(bits)
 
     /** The strip of the screen with the score, at half size. */
     private fun savePicture(shot: Screenshot, file: File) {
@@ -70,7 +114,9 @@ class Trace(context: Context) {
     }
 
     private companion object {
-        const val MAX_TRACES = 12
+        const val HEADER = "move,seconds,round,board,offered,slot,piece,row,col,cells,lines,all_clear,clear_possible," +
+            "combo_length,cleared_this_round,previous_as_expected,icon,score,score_stable,picture"
+        const val MAX_TRACES = 30
         const val PICTURE_TOP = 0.10f
         const val PICTURE_BOTTOM = 0.235f
         val START_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")

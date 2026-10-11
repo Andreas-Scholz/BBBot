@@ -13,6 +13,8 @@
     <string name="main_game_missing">Block Blast is not installed.</string>
     <string name="main_strategy_title">3. Choose how to play</string>
     <string name="main_strategy_text">The choice applies the next time the bot is started.</string>
+    <string name="main_measure_title">4. Measure exactly</string>
+    <string name="main_measure_text">Wait after every clear until the score stands still, so that the record shows what each piece earned. The bot then needs five to six seconds per clear. Applies the next time it is started.</string>
     <string name="strategy_safe">Safe</string>
     <string name="strategy_safe_text">Keeps the board open and gives up a combo early. Long games, fewer points per piece.</string>
     <string name="strategy_balanced">Balanced</string>

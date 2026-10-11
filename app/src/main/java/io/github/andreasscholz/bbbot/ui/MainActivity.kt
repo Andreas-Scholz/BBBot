@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -87,7 +88,9 @@ private fun MainScreen() {
             button = stringResource(R.string.main_open_game).takeIf { gameIntent != null },
             onClick = { gameIntent?.let(context::startActivity) },
         )
-        StrategyChoice(remember { BotSettings(context) })
+        val settings = remember { BotSettings(context) }
+        StrategyChoice(settings)
+        MeasureSwitch(settings)
     }
 }
 
@@ -126,6 +129,31 @@ private fun StrategyChoice(settings: BotSettings) {
                 Text(text = stringResource(strategy.description), style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+}
+
+@Composable
+private fun MeasureSwitch(settings: BotSettings) {
+    var measure by remember { mutableStateOf(settings.measure) }
+
+    Text(
+        text = stringResource(R.string.main_measure_title),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(top = 32.dp),
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            text = stringResource(R.string.main_measure_text),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f).padding(end = 16.dp),
+        )
+        Switch(
+            checked = measure,
+            onCheckedChange = {
+                measure = it
+                settings.measure = it
+            },
+        )
     }
 }
 

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="main_intro">BBBot spielt Block Blast von allein. Die App liest den Bildschirm, entscheidet, wohin die Steine gehören, und zieht sie dorthin.</string>
+</resources>

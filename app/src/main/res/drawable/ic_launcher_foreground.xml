@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An L-shaped piece of four blocks, inside the 66dp safe zone of the 108dp canvas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFC83D"
+        android:pathData="M35,25h18v18h-18z M35,45h18v18h-18z M35,65h18v18h-18z M55,65h18v18h-18z" />
+</vector>

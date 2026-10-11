@@ -27,7 +27,7 @@ screenshot ──► recognition ──► solver ──► gestures
 
 | Feature                                   | State   |
 |-------------------------------------------|---------|
-| Project setup                             | planned |
+| Project setup                             | done    |
 | Game model and solver                     | planned |
 | Accessibility service, overlay, gestures  | planned |
 | Board and piece recognition               | planned |

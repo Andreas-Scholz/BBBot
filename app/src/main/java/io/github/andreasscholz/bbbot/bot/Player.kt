@@ -88,7 +88,8 @@ class Player(
         // being measured to find out how long the combo really is.
         var exact = false
         var calibration: Calibration? = null
-        var clearsSinceCalibration = CALIBRATE_EVERY
+        // Whether the length of the combo is a guess, because the bot was started into a running one.
+        var comboGuessed = false
         var settleLooks = 0
         try {
             while (true) {
@@ -162,15 +163,16 @@ class Player(
                     continue
                 }
                 calibration?.let { measured ->
-                    // What a clear earns tells how long the combo is: a line is worth a fixed step
-                    // for every piece that cleared something. The bot's own count is wrong when it
-                    // was started in the middle of a combo, and this sets it right.
+                    // What a clear earns tells how long the combo is: late in a game a line was worth
+                    // a fixed step for every piece that cleared something. This replaces the guess
+                    // made when the bot was started in the middle of a combo.
                     if (scoreMoving && counted) {
                         val earned = score!! - measured.scoreBefore - measured.cells
                         val length = (earned / (Scoring.STEP * Scoring.worth(measured.lines))).roundToInt()
                         if (length >= 1) {
-                            Log.i(TAG, "A clear of ${measured.lines} earned $earned: the combo is $length long, counted $comboLength")
+                            Log.i(TAG, "A clear of ${measured.lines} earned $earned: the combo is $length long, guessed $comboLength")
                             comboLength = length
+                            comboGuessed = false
                         }
                     }
                     calibration = null
@@ -200,6 +202,7 @@ class Player(
                     // to defend it until no round fit any more.
                     comboLength = if (ComboIcon.share(shot) > COMBO_CLEARLY_RUNNING) UNKNOWN_COMBO else 0
                     clearedThisRound = comboLength > 0
+                    comboGuessed = comboLength > 0
                 }
                 if (screen.tray.size == HeuristicEvaluator.ROUND && lastTray != HeuristicEvaluator.ROUND) {
                     // A new round begins. The one before it had to clear something to keep the combo.
@@ -251,10 +254,12 @@ class Player(
                 val placement = plan.placements.first()
 
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
-                // Now and then a clear is measured to check the length of the combo. That needs
-                // a score that stands still before the piece as well as after it.
+                // A guessed length of the combo is replaced by a measured one at the first clear.
+                // That needs a score that stands still before the piece as well as after it. A
+                // count the bot kept from the start of a combo is left alone: early in a game
+                // the measurement did not agree with it, and why is not known yet.
                 var calibrate = false
-                if (result.linesCleared > 0 && clearsSinceCalibration >= CALIBRATE_EVERY && score != null) {
+                if (result.linesCleared > 0 && comboGuessed && score != null) {
                     if (!scoreStable && settleLooks < MAX_SCORE_LOOKS) {
                         settleLooks++
                         delay(SCORE_MS)
@@ -297,12 +302,7 @@ class Player(
                         cells = placement.piece.cellCount,
                         exact = waitForScore,
                     )
-                    if (calibrate) {
-                        calibration = Calibration(score!!, placement.piece.cellCount, result.linesCleared)
-                        clearsSinceCalibration = 0
-                    } else if (result.linesCleared > 0) {
-                        clearsSinceCalibration++
-                    }
+                    if (calibrate) calibration = Calibration(score!!, placement.piece.cellCount, result.linesCleared)
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
                     delay(RETRY_MS)
@@ -352,9 +352,6 @@ class Player(
 
     private companion object {
         const val TAG = "BBBot"
-
-        /** After how many pieces that cleared something the length of the combo is measured again. */
-        const val CALIBRATE_EVERY = 40
 
         const val PRESS_MS = 60L
         const val DRAG_BASE_MS = 120L

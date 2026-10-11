@@ -27,17 +27,36 @@ data class Weights(
     /** Extra per additional line cleared by the same piece. */
     val multiLine: Double = 1.0,
     /**
-     * What a running combo is worth, as a loss when it ends. This is the one weight that sets
-     * how much risk the bot takes: the more a combo counts, the more of the board's good shape
-     * is given up to keep clearing lines.
+     * Per piece that clears anything, however many lines. The game lengthens the combo by one
+     * for every such piece, so two pieces clearing a line each do more for it than one piece
+     * clearing two.
      */
-    val comboBreak: Double = -50.0,
+    val clearingPiece: Double = 3.0,
+    /**
+     * What a combo is worth when it begins, as a loss when it ends. The more a combo counts,
+     * the more of the board's good shape is given up to keep clearing lines.
+     */
+    val comboBreak: Double = -10.0,
+    /**
+     * How much the worth of a combo grows with every piece that cleared something, as a
+     * fraction of [comboBreak]. In the game a clear earns more the longer the combo is, so a
+     * long combo is worth more than a short one.
+     */
+    val comboGrowth: Double = 0.05,
+    /** The most a combo can be worth, as a multiple of [comboBreak]. */
+    val comboCap: Double = 6.0,
     /**
      * The chance taken for a piece after the next one to clear a line. What the next piece can
      * do is read off the board; the pieces after it can be set up for, so they are given at
      * least this chance.
      */
     val laterClear: Double = 0.3,
+    /**
+     * Whether [laterClear] shrinks on a board that is far from a full line. On an empty board
+     * the next round can hardly clear anything, which is how combos end after the board was
+     * cleared completely. 0 switches this off, 1 switches it on.
+     */
+    val needsNearLine: Double = 1.0,
     /**
      * How much of a board's rating is replaced by the rating of the boards one more piece
      * later, averaged over all shapes placed as well as possible; between 0 and 1.
@@ -79,27 +98,25 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
 
     /** Reward for clearing [lines] rows and columns with one piece. */
     fun lineReward(lines: Int): Double =
-        if (lines == 0) 0.0 else weights.line * lines + weights.multiLine * (lines - 1)
+        if (lines == 0) 0.0 else weights.line * lines + weights.multiLine * (lines - 1) + weights.clearingPiece
 
-    /**
-     * What the combo is worth after a piece was placed. [gap] counts the pieces placed since
-     * the last clear, this one included; the combo ends with the third.
-     */
-    fun comboReward(gap: Int): Double = if (gap == COMBO_LENGTH) weights.comboBreak else 0.0
+    /** What losing a combo of [length] clearing pieces costs; negative. */
+    fun comboWorth(length: Int): Double =
+        weights.comboBreak * minOf(1 + weights.comboGrowth * length, weights.comboCap)
 
     /**
      * Rates what a board that ends a round has to expect from the next piece, on top of
      * [evaluate]. It tries every shape in every position, which is much too slow to do for
      * every board the solver comes across.
      *
-     * The combo: it ends unless one of the next `COMBO_LENGTH - gap` pieces clears a line. The
-     * share of shapes that could do so right away is the chance of the next piece, the pieces
+     * The combo: it ends unless one of the three pieces of the next round clears a line. The
+     * share of shapes that could do so right away is the chance of the first of them, the two
      * after it get at least [Weights.laterClear], and the expected loss is the worth of the
-     * combo times the chance of missing every time.
+     * combo, [comboLength] pieces long by now, times the chance of missing every time.
      *
      * The future: how good the board still is after the next piece, on average over all shapes.
      */
-    fun outlook(bits: Long, gap: Int): Double {
+    fun outlook(bits: Long, comboLength: Int): Double {
         val rateBoards = weights.lookahead != 0.0
         var clearing = 0
         var fitting = 0
@@ -130,20 +147,29 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
             }
         }
 
-        var value = 0.0
-        if (gap < COMBO_LENGTH) {
-            val next = clearing.toDouble() / SHAPES.size
-            var miss = 1 - next
-            repeat(COMBO_LENGTH - gap - 1) { miss *= 1 - maxOf(next, weights.laterClear) }
-            value += weights.comboBreak * miss
+        val next = clearing.toDouble() / SHAPES.size
+        // The line closest to full: with four cells or fewer to go a later piece has its usual
+        // chance, with all eight to go it has none.
+        var fewestEmpty = SIZE
+        for (i in 0 until SIZE) {
+            fewestEmpty = minOf(
+                fewestEmpty,
+                SIZE - (bits and (ROW_0 shl (i * SIZE))).countOneBits(),
+                SIZE - (bits and (COL_0 shl i)).countOneBits(),
+            )
         }
+        val near = ((SIZE - fewestEmpty) / 4.0).coerceAtMost(1.0)
+        val later = weights.laterClear * (1 - weights.needsNearLine * (1 - near))
+        var miss = 1 - next
+        repeat(ROUND - 1) { miss *= 1 - maxOf(next, later) }
+        var value = comboWorth(comboLength) * miss
         if (fitting > 0) value += weights.lookahead * (sum / fitting - evaluate(bits))
         return value
     }
 
     companion object {
-        /** A combo lasts as long as fewer than this many pieces in a row clear nothing. */
-        const val COMBO_LENGTH = 3
+        /** The number of pieces offered together. */
+        const val ROUND = 3
 
         private const val ROW_7 = ROW_0 shl (SIZE * (SIZE - 1))
         private const val COL_7 = COL_0 shl (SIZE - 1)

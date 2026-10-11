@@ -79,26 +79,44 @@ class SolverTest {
     }
 
     @Test
-    fun `losing the combo costs, and only at the third piece without a clear`() {
-        val evaluator = HeuristicEvaluator()
-        assertEquals(0.0, evaluator.comboReward(gap = 1), 0.0)
-        assertEquals(0.0, evaluator.comboReward(gap = 2), 0.0)
-        assertTrue(evaluator.comboReward(gap = 3) < 0)
+    fun `a combo is worth more the longer it is, up to a limit`() {
+        val evaluator = HeuristicEvaluator(Weights(comboBreak = -10.0, comboGrowth = 0.5, comboCap = 4.0))
+        assertEquals(-10.0, evaluator.comboWorth(0), 0.0)
+        assertEquals(-20.0, evaluator.comboWorth(2), 0.0)
+        assertEquals(-40.0, evaluator.comboWorth(6), 0.0)
+        assertEquals(-40.0, evaluator.comboWorth(100), 0.0)
+    }
+
+    @Test
+    fun `a round needs one clear to keep the combo, and no more than one`() {
+        // Completing the bottom row leaves a block sticking out; nothing else is at stake.
+        val board = Board.parse(*Array(7) { "........" }, "XXXXXX..")
+        val evaluator = HeuristicEvaluator(Weights(comboBreak = -1000.0, lookahead = 0.0))
+        val solver = Solver(evaluator)
+        val piece = listOf(Piece.of("X", "X", "X"))
+
+        // With the round's clear still owed, the piece has to deliver it. It cannot, so the
+        // combo is lost whatever is done, and it is lost equally for every placement.
+        assertFalse(solver.solve(board, piece, Combo(length = 9)).clearPossible)
+        assertEquals(
+            solver.solve(board, piece, Combo(length = 9)).placements,
+            solver.solve(board, piece, Combo(length = 9, clearedThisRound = true)).placements,
+        )
     }
 
     @Test
     fun `a board with a line about to be completed promises more for the combo`() {
         // Without the look at the boards after the next piece, only the combo is left to rate.
-        val evaluator = HeuristicEvaluator(Weights(lookahead = 0.0))
+        val evaluator = HeuristicEvaluator(Weights(lookahead = 0.0, comboGrowth = 0.1, comboCap = 100.0))
         val nearlyDone = Board.parse(*Array(7) { "........" }, "XXXXXXX.")
         val scattered = Board.parse(*Array(7) { "........" }, "X.X.X.X.")
 
-        for (gap in 0..2) {
-            assertTrue(evaluator.outlook(nearlyDone.bits, gap) > evaluator.outlook(scattered.bits, gap))
+        for (length in listOf(0, 5, 50)) {
+            assertTrue(evaluator.outlook(nearlyDone.bits, length) > evaluator.outlook(scattered.bits, length))
         }
-        // The fewer pieces are left to save the combo, the more the difference counts.
-        fun advantage(gap: Int) = evaluator.outlook(nearlyDone.bits, gap) - evaluator.outlook(scattered.bits, gap)
-        assertTrue(advantage(2) > advantage(0))
+        // The longer the combo, the more the difference counts.
+        fun advantage(length: Int) = evaluator.outlook(nearlyDone.bits, length) - evaluator.outlook(scattered.bits, length)
+        assertTrue(advantage(50) > advantage(0))
     }
 
     @Test
@@ -108,17 +126,6 @@ class SolverTest {
         assertTrue(solver.solve(board, listOf(Piece.of("XXX"))).clearPossible)
         assertTrue(solver.solve(board, listOf(Piece.of("XX"), Piece.of("X"))).clearPossible)
         assertFalse(solver.solve(board, listOf(Piece.of("XX"))).clearPossible)
-    }
-
-    @Test
-    fun `pieces that could not clear anything do not use up the combo`() {
-        // One block short of a full row, and a piece that cannot fill the gap.
-        val board = Board.parse(*Array(7) { "........" }, "XXXXXXX.")
-        val square = listOf(Piece.of("XX", "XX"))
-
-        // Had the combo counted as lost, there would be nothing to choose by; it counts as
-        // alive, so the plan is the same as with a piece to spare.
-        assertEquals(solver.solve(board, square, piecesSinceClear = 0), solver.solve(board, square, piecesSinceClear = 2))
     }
 
     @Test

@@ -1,28 +1,23 @@
 package io.github.andreasscholz.bbbot.game
 
 /**
- * The ways of playing that can be chosen in the app. They differ in one thing only: what a
- * running combo is worth compared to a board in good shape. Everything else is the same,
- * because nothing else that was tried in simulated games traded safety for points.
+ * The ways of playing that can be chosen in the app. They differ in one thing only: how much a
+ * long combo may come to be worth compared to a board in good shape. A combo is worth little
+ * when it begins and more with every piece that clears something; the strategies set where
+ * that stops. Everything else is the same, because nothing else that was tried in simulated
+ * games traded safety for points.
  *
- * In 384 simulated games each (`StrategyLab`), with up to 1000 rounds of three pieces:
- *
- * | strategy | rounds survived | points per round | points per game |
- * |----------|-----------------|------------------|-----------------|
- * | safe     | 560             | 412              | 231,000         |
- * | balanced | 465             | 1139             | 530,000         |
- * | risky    | 304             | 2054             | 625,000         |
- *
- * The points come from an imitation of the game's scoring, and the real game draws its pieces
- * differently, so the table ranks the strategies and says little about points on the phone.
+ * The numbers for each strategy are in the README. They come from `StrategyLab`, from games
+ * against uniformly drawn pieces that are scored by an imitation of the game, so they rank the
+ * strategies and say little about the points to expect on the phone.
  */
 enum class Strategy(val weights: Weights) {
-    /** Gives up a combo early to keep the board open. Long games, short combos. */
-    SAFE(Weights(comboBreak = -20.0)),
+    /** Lets a combo go rather than spoil the board. The longest games. */
+    SAFE(Weights(comboCap = 4.0)),
 
     /** In between. */
-    BALANCED(Weights(comboBreak = -50.0)),
+    BALANCED(Weights(comboCap = 7.0)),
 
-    /** Holds on to a combo at the cost of the board. Most points per piece, but games end sooner. */
-    RISKY(Weights(comboBreak = -110.0)),
+    /** Defends a long combo at the cost of the board. The most points, but games end sooner. */
+    RISKY(Weights(comboCap = 11.0)),
 }

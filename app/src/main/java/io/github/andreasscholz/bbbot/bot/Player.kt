@@ -3,7 +3,10 @@ package io.github.andreasscholz.bbbot.bot
 import android.os.SystemClock
 import android.util.Log
 import io.github.andreasscholz.bbbot.game.Board
+import io.github.andreasscholz.bbbot.game.Combo
+import io.github.andreasscholz.bbbot.game.HeuristicEvaluator
 import io.github.andreasscholz.bbbot.game.Solver
+import io.github.andreasscholz.bbbot.vision.ComboIcon
 import io.github.andreasscholz.bbbot.vision.GameScreen
 import io.github.andreasscholz.bbbot.vision.ScreenReader
 import kotlinx.coroutines.CancellationException
@@ -54,8 +57,12 @@ class Player(
         var pending: PendingMove? = null
         var unreadable = 0
         var rejected = 0
-        // Pieces placed since a line was last cleared; the solver needs it to keep the combo alive.
-        var piecesSinceClear = 0
+        // The combo as the bot counts it. The game shows its length only in passing, so it is
+        // counted here: one for every piece that clears something, and over when a round of three
+        // pieces went by without a clear.
+        var comboLength = -1
+        var clearedThisRound = false
+        var lastTray = 0
         // The board on which the pieces did not fit at the last look.
         var deadEnd: Board? = null
         var previousAsExpected = true
@@ -94,7 +101,10 @@ class Player(
                         rejected = 0
                         // Fewer blocks than the piece added means that lines were cleared.
                         val cleared = screen.board.filledCount < move.before.filledCount + move.cells
-                        if (cleared) piecesSinceClear = 0 else if (move.countsForCombo) piecesSinceClear++
+                        if (cleared) {
+                            comboLength++
+                            clearedThisRound = true
+                        }
                     } else if (++rejected == REJECTED_BEFORE_SAVE) {
                         // The game keeps refusing the move, so the bot misreads something.
                         val file = captureStore.save(shot, "rejected")
@@ -105,8 +115,21 @@ class Player(
                     pending = null
                 }
 
+                if (comboLength < 0) {
+                    // Started in the middle of a game: the symbol behind the score tells whether a
+                    // combo is running, but not for how long. It is taken to be a long one.
+                    comboLength = if (ComboIcon.share(shot) > COMBO_CLEARLY_RUNNING) UNKNOWN_COMBO else 0
+                    clearedThisRound = comboLength > 0
+                }
+                if (screen.tray.size == HeuristicEvaluator.ROUND && lastTray != HeuristicEvaluator.ROUND) {
+                    // A new round begins. The one before it had to clear something to keep the combo.
+                    if (!clearedThisRound) comboLength = 0
+                    clearedThisRound = false
+                }
+                lastTray = screen.tray.size
+
                 val plan = withContext(Dispatchers.Default) {
-                    solver.solve(screen.board, screen.tray.map { it.piece }, piecesSinceClear)
+                    solver.solve(screen.board, screen.tray.map { it.piece }, Combo(comboLength, clearedThisRound))
                 }
                 if (!plan.complete) {
                     // Stopping ends the run, so a board misread in mid-animation must not cause it:
@@ -133,7 +156,8 @@ class Player(
                     cells = placement.piece.cellCount,
                     lines = result.linesCleared,
                     clearPossible = plan.clearPossible,
-                    piecesSinceClear = piecesSinceClear,
+                    comboLength = comboLength,
+                    clearedThisRound = clearedThisRound,
                     previousAsExpected = previousAsExpected,
                 )
                 if (drag(screen, DragPlan.of(screen.geometry, screen.tray[placement.pieceIndex], placement))) {
@@ -142,7 +166,6 @@ class Player(
                         expected = result.board,
                         lines = result.linesCleared,
                         cells = placement.piece.cellCount,
-                        countsForCombo = plan.clearPossible,
                     )
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
@@ -181,8 +204,6 @@ class Player(
         val lines: Int,
         /** The number of blocks of the piece. */
         val cells: Int,
-        /** False for a piece of a round in which nothing could be cleared anyway. */
-        val countsForCombo: Boolean,
         /** The board of the latest look that did not show the expected one. */
         val seen: Board? = null,
         val looks: Int = 0,
@@ -200,6 +221,12 @@ class Player(
         const val SETTLE_MS = 150L
         const val CLEAR_MS = 450L
         const val RETRY_MS = 300L
+
+        /** Share of the combo symbol above which a combo is running beyond doubt, in any theme. */
+        const val COMBO_CLEARLY_RUNNING = 0.1f
+
+        /** The length taken for a combo that was running before the bot started. */
+        const val UNKNOWN_COMBO = 1000
 
         const val MAX_LOOKS = 6
         const val REJECTED_BEFORE_SAVE = 3

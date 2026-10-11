@@ -27,8 +27,8 @@ class Trace(context: Context) {
      * Adds the piece about to be placed. [shot] is the screen before it, [move] its number in
      * the run, [tray] the number of pieces on offer, [cells] its blocks, [lines] the lines it is
      * expected to clear, [clearPossible] whether the pieces on offer could clear anything,
-     * [piecesSinceClear] the bot's own count for the combo and [previousAsExpected] whether the
-     * piece before this one ended up where it was meant to.
+     * [comboLength] and [clearedThisRound] the combo as the bot counts it and
+     * [previousAsExpected] whether the piece before this one ended up where it was meant to.
      */
     suspend fun add(
         shot: Screenshot,
@@ -38,17 +38,18 @@ class Trace(context: Context) {
         cells: Int,
         lines: Int,
         clearPossible: Boolean,
-        piecesSinceClear: Int,
+        comboLength: Int,
+        clearedThisRound: Boolean,
         previousAsExpected: Boolean,
     ) = withContext(Dispatchers.IO) {
         if (!directory.exists()) {
             directory.mkdirs()
-            moves.writeText("move,seconds,tray,cells,lines,clear_possible,pieces_since_clear,previous_as_expected,icon,picture\n")
+            moves.writeText("move,seconds,tray,cells,lines,clear_possible,combo_length,cleared_this_round,previous_as_expected,icon,picture\n")
             prune()
         }
         val picture = "%05d.jpg".format(move)
         val icon = "%.3f".format(java.util.Locale.ROOT, ComboIcon.share(shot))
-        moves.appendText("$move,$seconds,$tray,$cells,$lines,$clearPossible,$piecesSinceClear,$previousAsExpected,$icon,$picture\n")
+        moves.appendText("$move,$seconds,$tray,$cells,$lines,$clearPossible,$comboLength,$clearedThisRound,$previousAsExpected,$icon,$picture\n")
         savePicture(shot, File(directory, picture))
     }
 

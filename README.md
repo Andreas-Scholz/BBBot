@@ -35,6 +35,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Combo strategy                            | done    |
 | Stop and take a picture at the end        | done    |
 | Lookahead and selectable strategies       | done    |
+| Combo rules measured in the game          | done    |
 
 ## Using it
 
@@ -57,11 +58,14 @@ strategy, the reason it ended (`no_room` or `stopped`), the pieces placed, the l
 the seconds it took and the name of the screenshot. The score is only in the screenshot; the
 bot does not read it.
 
+### Traces
+
 Every run also leaves a trace, `trace-<start>/moves.csv`, with a line per piece placed (the
-lines it cleared, whether the offered pieces could clear anything, the bot's count for the
-combo, and how much of the combo symbol behind the score was on the screen) and a small
+lines it cleared, whether the offered pieces could clear anything, the combo as the bot
+counts it, and how much of the combo symbol behind the score was on the screen) and a small
 picture of the score before each piece. It is there to find out how the game counts combos
-and points. The newest twelve traces are kept.
+and points; the rules under "Combos" come from such a trace of 515 pieces. The newest twelve
+traces are kept.
 
 The camera button in the panel saves what the bot sees as a PNG in
 `Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone, where the `final-…`
@@ -134,45 +138,55 @@ If the pieces cannot all be placed, the bot stops instead of placing what still 
 
 ### Combos
 
-Most points come from long combos: every clear is worth more the longer the row of clears
-before it. The game publishes no rules, and the guides on the web disagree on the details;
-they agree that a combo lasts as long as a line is cleared within three pieces. The solver
-plays by the strict reading, in which the third piece in a row that clears nothing ends the
-combo.
+Nearly all points come from long combos. The game publishes no rules, so these were read off
+traces of real games (see "Traces" below):
 
-A running combo has a worth. Ending it costs that worth, and a board costs the worth times
-the chance that the combo ends on it: the chance that neither the next piece nor the ones
-after it, as far as the combo still allows, clear a line. What the next piece can do is read
-off the board, as the share of all shapes that could clear something at once; the pieces
-after it can be set up for and are given a chance of at least 30 %.
+- A combo lasts as long as every round, the three pieces offered together, clears at least
+  one line. A round without a clear ends it, also when no clear was possible with its pieces.
+  Three pieces in a row without a clear do no harm as long as they belong to two rounds.
+- The game draws a symbol behind the score while a combo runs, and takes it away when the
+  combo ends.
+- A clear earns more the longer the combo is, by orders of magnitude: in one game a single
+  line was worth about 9,000 points with a long combo and about 10 right after it ended.
+- The combo grows by one for every piece that clears something, not for every line (seen by
+  the player; the game shows the number only in passing).
 
-Pieces that had no way of clearing a line seem not to count against the combo: watching the
-game, a combo went on after a round in which nothing could be cleared. This is one
-observation, not a rule read anywhere. The bot plays by it, because being wrong costs
-little: it then tries to save a combo that is already gone, which amounts to starting the
-next one quickly. The simulator keeps the strict rule, so this cannot be tested there; only
-the points reached on the phone can show whether it helps.
+The solver plays by that:
+
+- A combo has a worth, small when it begins and growing with every piece that cleared
+  something, up to a limit. Ending a round without a clear costs that worth.
+- A board costs the worth times the chance that the next round clears nothing. What the
+  first piece of that round can do is read off the board, as the share of all shapes that
+  could clear something at once. The two pieces after it can be set up for and get a chance
+  of up to 30 %, less on a board that is far from a full line: on an empty board a round can
+  hardly clear anything, which is how combos end after the board was cleared completely.
+- A piece that clears something gets a small bonus however many lines it clears, so that two
+  pieces clearing a line each are preferred to one clearing two.
+
+The bot counts the combo itself. When it is started in the middle of a game and the symbol is
+behind the score, it takes the combo for a long one.
 
 ### Strategies
 
-How much a combo is worth is the one setting that trades safety for points, and it is what
-the three strategies in the app differ in. In 384 simulated games each, with up to 1000
-rounds of three pieces:
+The limit up to which a combo gains in worth is the setting that trades safety for points,
+and it is what the three strategies in the app differ in. In 384 simulated games each, with
+up to 1000 rounds of three pieces:
 
-| Strategy | Combo worth | Rounds survived | Points per round | Points per game | One game in ten ends before round |
-|----------|-------------|-----------------|------------------|-----------------|-----------------------------------|
-| Safe     | 20          | 560             | 412              | 231,000         | 78                                |
-| Balanced | 50          | 465             | 1139             | 530,000         | 79                                |
-| Risky    | 110         | 304             | 2054             | 625,000         | 44                                |
+| Strategy | Limit | Rounds survived | Points per round | Points per game | One game in ten ends before round |
+|----------|-------|-----------------|------------------|-----------------|-----------------------------------|
+| Safe     | 4×    | 609             | 2762             | 1,681,000       | 108                               |
+| Balanced | 7×    | 538             | 4727             | 2,541,000       | 103                               |
+| Risky    | 11×   | 519             | 5582             | 2,896,000       | 101                               |
 
-For comparison, the solver before the look at the next piece: 283 rounds, 1354 points per
-round, 383,000 points per game.
+For comparison: a combo of constant worth reaches 577 rounds and 2,061,000 points, and a
+solver that does not care about combos 591 rounds and 231,000 points. Limits above 11× lose
+both rounds and points.
 
-These games are played against uniformly drawn pieces and scored by an imitation of the game
-(a point per block, ten points per line and more for several at once, times the length of
-the combo). The real game draws its pieces differently and scores differently in detail, so
-the table ranks the strategies against each other and says little about the points to expect
-on the phone.
+These games follow the combo rule above, but they are played against uniformly drawn pieces
+and scored by an imitation of the game (a point per block, ten points per line and more for
+several at once, times the length of the combo). The real game draws its pieces differently
+and scores differently in detail, so the table ranks the strategies against each other and
+says little about the points to expect on the phone.
 
 `StrategyLab` in the unit tests is the tool these numbers come from:
 
@@ -187,6 +201,9 @@ Also tried there, and left out because it did not help or made things worse:
 - a penalty for every shape that fits nowhere (no effect),
 - rating a board by the shape that turns out worst instead of the average (no effect),
 - more reward for clearing several lines at once (shorter games, fewer points),
+- a strong preference for clearing one line at a time (the board suffers; a small one is in),
+- not counting a round against the combo when its pieces could not clear anything, after it
+  looked that way in one game (the traces showed the combo ending all the same),
 - more than 64 sequences for the closer look (no effect beyond 64).
 
 ## Building

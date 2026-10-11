@@ -79,6 +79,28 @@ class SolverTest {
     }
 
     @Test
+    fun `losing the combo costs, and only at the third piece without a clear`() {
+        val evaluator = HeuristicEvaluator()
+        assertEquals(0.0, evaluator.comboReward(gap = 1), 0.0)
+        assertEquals(0.0, evaluator.comboReward(gap = 2), 0.0)
+        assertTrue(evaluator.comboReward(gap = 3) < 0)
+    }
+
+    @Test
+    fun `a board with a line about to be completed promises more for the combo`() {
+        val evaluator = HeuristicEvaluator()
+        val nearlyDone = Board.parse(*Array(7) { "........" }, "XXXXXXX.")
+        val scattered = Board.parse(*Array(7) { "........" }, "X.X.X.X.")
+
+        for (gap in 0..2) {
+            assertTrue(evaluator.comboOutlook(nearlyDone.bits, gap) > evaluator.comboOutlook(scattered.bits, gap))
+        }
+        // The fewer pieces are left to save the combo, the more the difference counts.
+        fun advantage(gap: Int) = evaluator.comboOutlook(nearlyDone.bits, gap) - evaluator.comboOutlook(scattered.bits, gap)
+        assertTrue(advantage(2) > advantage(0))
+    }
+
+    @Test
     fun `identical pieces are placed once each`() {
         val square = Piece.of("XX", "XX")
         val plan = solver.solve(Board.EMPTY, listOf(square, square, square))

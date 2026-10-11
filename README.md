@@ -32,6 +32,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Accessibility service, overlay, gestures  | done    |
 | Board and piece recognition               | done    |
 | Play loop                                 | done    |
+| Combo strategy                            | done    |
 
 ## Using it
 
@@ -109,9 +110,30 @@ ends with:
 
 If the pieces cannot all be placed, the solver places as many as it can.
 
+### Combos
+
+Most points come from long combos: every clear is worth more the longer the row of clears
+before it. The game publishes no rules, and the guides on the web disagree on the details;
+they agree that a combo lasts as long as a line is cleared within three pieces. The solver
+plays by the strict reading, in which the third piece in a row that clears nothing ends the
+combo:
+
+- ending the combo costs about as much as forty empty cells are worth, so it only happens
+  when the alternative is a ruined board,
+- a plan that uses up the offered pieces without a recent clear is rated lower, because the
+  next round then has to deliver one at once,
+- the best 24 plans are compared once more by how many of all shapes could clear a line on
+  the board they leave behind. That check is too slow to run for every plan, and it counts
+  for more the closer the combo is to running out.
+
+Room for the 3×3 square and the lines of five keeps its weight, so the bot does not buy a
+clear with a board that the next big piece ends the game on.
+
 The weights were tuned by letting the solver play simulated games against uniformly drawn
-pieces (`Simulator` in the unit tests). The real game draws its pieces differently, so those
-games only rank settings against each other.
+pieces (`Simulator` in the unit tests) with an imitation of the scoring. The real game draws
+its pieces differently and scores differently in detail, so those games only rank settings
+against each other. There, the combo terms multiplied the points by about seven and the
+longest combo by about four without shortening the games.
 
 ## Building
 

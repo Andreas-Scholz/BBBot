@@ -47,6 +47,8 @@ class Player(
         var pending: PendingMove? = null
         var unreadable = 0
         var rejected = 0
+        // Pieces placed since a line was last cleared; the solver needs it to keep the combo alive.
+        var piecesSinceClear = 0
         try {
             while (true) {
                 val shot = screenCapture.capture()
@@ -79,6 +81,9 @@ class Player(
                     if (screen.board != move.before) {
                         moves++
                         rejected = 0
+                        // Fewer blocks than the piece added means that lines were cleared.
+                        val cleared = screen.board.filledCount < move.before.filledCount + move.cells
+                        piecesSinceClear = if (cleared) 0 else piecesSinceClear + 1
                     } else if (++rejected == REJECTED_BEFORE_SAVE) {
                         // The game keeps refusing the move, so the bot misreads something.
                         val file = captureStore.save(shot, "rejected")
@@ -88,7 +93,9 @@ class Player(
                     pending = null
                 }
 
-                val plan = withContext(Dispatchers.Default) { solver.solve(screen.board, screen.tray.map { it.piece }) }
+                val plan = withContext(Dispatchers.Default) {
+                    solver.solve(screen.board, screen.tray.map { it.piece }, piecesSinceClear)
+                }
                 val placement = plan.placements.firstOrNull()
                 if (placement == null) {
                     onStatus(PlayStatus(PlayStatus.State.NO_MOVE, moves, lines))
@@ -99,7 +106,7 @@ class Player(
                 onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines))
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
                 if (drag(screen, DragPlan.of(screen.geometry, screen.tray[placement.pieceIndex], placement))) {
-                    pending = PendingMove(screen.board, result.board, result.linesCleared)
+                    pending = PendingMove(screen.board, result.board, result.linesCleared, placement.piece.cellCount)
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
                     delay(RETRY_MS)
@@ -135,6 +142,8 @@ class Player(
         val before: Board,
         val expected: Board,
         val lines: Int,
+        /** The number of blocks of the piece. */
+        val cells: Int,
         /** The board of the latest look that did not show the expected one. */
         val seen: Board? = null,
         val looks: Int = 0,

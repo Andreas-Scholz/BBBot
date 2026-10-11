@@ -1,5 +1,7 @@
 package io.github.andreasscholz.bbbot.game
 
+import io.github.andreasscholz.bbbot.game.HeuristicEvaluator.Companion.COMBO_LENGTH
+
 /** Putting piece number [pieceIndex] of the offered pieces down with its top left corner at [row], [col]. */
 data class Placement(val pieceIndex: Int, val piece: Piece, val row: Int, val col: Int)
 
@@ -17,15 +19,32 @@ data class Plan(
 /**
  * Finds the best way to place the offered pieces by trying every order and every position.
  * With three pieces that is at most 6 · 64³ sequences, few enough to look at all of them.
+ *
+ * Every sequence is rated quickly by the board it ends with and by what happened on the way:
+ * lines cleared, and whether the combo survived. The best few are then compared once more by
+ * how well they keep the combo going in the next round, which takes too long to do for all.
  */
 class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
 
-    fun solve(board: Board, pieces: List<Piece>): Plan {
+    /**
+     * [piecesSinceClear] is the number of pieces placed since a line was last cleared. The game
+     * ends a combo with the third such piece, and long combos are where the points are.
+     */
+    fun solve(board: Board, pieces: List<Piece>, piecesSinceClear: Int = 0): Plan {
         require(pieces.size <= MAX_PIECES) { "At most $MAX_PIECES pieces" }
         val search = Search(pieces)
-        search.run(board.bits, remaining = (1 shl pieces.size) - 1, depth = 0, reward = 0.0, lines = 0)
+        search.run(
+            bits = board.bits,
+            remaining = (1 shl pieces.size) - 1,
+            depth = 0,
+            reward = 0.0,
+            lines = 0,
+            gap = piecesSinceClear.coerceIn(0, COMBO_LENGTH),
+        )
         return search.result(board)
     }
+
+    private class Candidate(val value: Double, val path: IntArray, val bits: Long, val lines: Int, val gap: Int)
 
     private inner class Search(private val pieces: List<Piece>) {
         private val masks = LongArray(pieces.size) { pieces[it].mask }
@@ -34,13 +53,13 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
 
         // A step is stored as pieceIndex * 64 + row * 8 + col.
         private val path = IntArray(pieces.size)
-        private var bestPath = IntArray(0)
-        private var bestValue = Double.NEGATIVE_INFINITY
-        private var bestLines = 0
 
-        fun run(bits: Long, remaining: Int, depth: Int, reward: Double, lines: Int) {
+        /** The best sequences found so far, the best first. */
+        private val candidates = ArrayList<Candidate>(CANDIDATES + 1)
+
+        fun run(bits: Long, remaining: Int, depth: Int, reward: Double, lines: Int, gap: Int) {
             if (remaining == 0) {
-                offer(reward + evaluator.evaluate(bits), depth, lines)
+                offer(reward + evaluator.evaluate(bits), depth, bits, lines, gap)
                 return
             }
             var placedAny = false
@@ -55,20 +74,25 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
                         val filled = bits or cells
                         val full = Board.fullLines(filled)
                         val cleared = if (full == 0L) 0 else Board.countLines(filled)
+                        // Once the combo is gone there is nothing left to lose until the next clear.
+                        val nextGap = if (cleared > 0) 0 else minOf(gap + 1, COMBO_LENGTH)
+                        val combo = if (cleared == 0 && gap < COMBO_LENGTH) evaluator.comboReward(nextGap) else 0.0
                         path[depth] = index * CELLS + row * Board.SIZE + col
                         run(
                             bits = filled and full.inv(),
                             remaining = remaining and (1 shl index).inv(),
                             depth = depth + 1,
-                            reward = reward + evaluator.lineReward(cleared),
+                            reward = reward + evaluator.lineReward(cleared) + combo,
                             lines = lines + cleared,
+                            gap = nextGap,
                         )
                     }
                 }
             }
             if (!placedAny) {
                 // Nothing fits any more: the game is lost here, so only a longer sequence beats this.
-                offer(reward + evaluator.evaluate(bits) - STUCK_PENALTY * remaining.countOneBits(), depth, lines)
+                val value = reward + evaluator.evaluate(bits) - STUCK_PENALTY * remaining.countOneBits()
+                offer(value, depth, bits, lines, gap)
             }
         }
 
@@ -80,24 +104,34 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
             return false
         }
 
-        private fun offer(value: Double, depth: Int, lines: Int) {
-            if (value > bestValue) {
-                bestValue = value
-                bestPath = path.copyOf(depth)
-                bestLines = lines
+        private fun offer(value: Double, depth: Int, bits: Long, lines: Int, gap: Int) {
+            if (candidates.size == CANDIDATES && value <= candidates.last().value) return
+            // The same board reached in another order is the same candidate.
+            val same = candidates.indexOfFirst { it.bits == bits && it.path.size == depth }
+            if (same >= 0) {
+                if (candidates[same].value >= value) return
+                candidates.removeAt(same)
             }
+            val position = candidates.indexOfFirst { it.value < value }
+            candidates.add(
+                if (position < 0) candidates.size else position,
+                Candidate(value, path.copyOf(depth), bits, lines, gap),
+            )
+            if (candidates.size > CANDIDATES) candidates.removeAt(candidates.lastIndex)
         }
 
         fun result(start: Board): Plan {
+            val best = candidates.maxByOrNull { it.value + evaluator.comboOutlook(it.bits, it.gap) }
+                ?: return Plan(emptyList(), start, linesCleared = 0, complete = pieces.isEmpty())
             var board = start
-            val placements = bestPath.map { step ->
+            val placements = best.path.map { step ->
                 val index = step / CELLS
                 val row = step % CELLS / Board.SIZE
                 val col = step % Board.SIZE
                 board = board.place(pieces[index], row, col).board
                 Placement(index, pieces[index], row, col)
             }
-            return Plan(placements, board, bestLines, complete = placements.size == pieces.size)
+            return Plan(placements, board, best.lines, complete = placements.size == pieces.size)
         }
     }
 
@@ -105,5 +139,8 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
         const val MAX_PIECES = 3
         const val CELLS = Board.SIZE * Board.SIZE
         const val STUCK_PENALTY = 1e6
+
+        /** How many of the best sequences are compared by their outlook for the combo. */
+        const val CANDIDATES = 24
     }
 }

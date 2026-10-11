@@ -37,11 +37,13 @@ class ScreenReader {
     fun read(shot: Screenshot): GameScreen? {
         val scene = Scene(shot)
         val frame = findFrame(scene) ?: return null
-        val inset = frame.width * FRAME_THICKNESS
+        // The grid is where the border ends, and the themes draw borders of different widths.
+        val borderX = borderThickness(shot, frame, alongRows = true)
+        val borderY = borderThickness(shot, frame, alongRows = false)
         val geometry = BoardGeometry(
-            left = frame.left + inset,
-            top = frame.top + inset,
-            cellSize = (frame.width - 2 * inset) / Board.SIZE,
+            left = (frame.left + borderX).toFloat(),
+            top = (frame.top + borderY).toFloat(),
+            cellSize = (frame.width - 2 * borderX) / Board.SIZE.toFloat(),
         )
         val board = readBoard(shot, geometry) ?: return null
         val tray = readTray(scene, frame, geometry) ?: return null
@@ -124,6 +126,28 @@ class ScreenReader {
         val frame = Frame(left, bestTop, right, bestBottom)
         if (left < 0 || abs(frame.width - frame.height) > frame.width * SQUARE_TOLERANCE) return null
         return frame
+    }
+
+    /**
+     * How many pixels the border of the board is wide: how far the color just inside its outer
+     * edge reaches inwards. Looked up at many places along the left edge (or the top edge) and
+     * settled by the median, since a single place may hit something odd.
+     */
+    private fun borderThickness(shot: Screenshot, frame: Frame, alongRows: Boolean): Int {
+        val limit = (frame.width * MAX_BORDER).toInt()
+        val samples = IntArray(BORDER_SAMPLES) { sample ->
+            val offset = ((sample + 0.5f) / BORDER_SAMPLES * frame.width).toInt()
+            fun pixel(depth: Int): Int =
+                if (alongRows) shot[frame.left + depth, frame.top + offset] else shot[frame.left + offset, frame.top + depth]
+
+            // The outermost pixel is blended with the background, so the color is taken one further in.
+            val color = pixel(1)
+            var depth = 2
+            while (depth < limit && distance(pixel(depth), color) < BORDER_DISTANCE) depth++
+            depth
+        }
+        samples.sort()
+        return samples[BORDER_SAMPLES / 2]
     }
 
     private fun readBoard(shot: Screenshot, geometry: BoardGeometry): Board? {
@@ -243,8 +267,13 @@ class ScreenReader {
 
         const val SQUARE_TOLERANCE = 0.04f
 
-        /** Width of the border around the grid, as a fraction of the board with its border. */
-        const val FRAME_THICKNESS = 0.012f
+        const val BORDER_SAMPLES = 31
+
+        /** Color distance within which a pixel still belongs to the border. */
+        const val BORDER_DISTANCE = 30
+
+        /** The widest border looked for, as a fraction of the board's width. */
+        const val MAX_BORDER = 0.03f
 
         /** Distance of the color samples from the middle of a cell, in cells. */
         const val SAMPLE_SPREAD = 0.15f
@@ -259,13 +288,14 @@ class ScreenReader {
         const val MAX_PIECE_SIZE = 5
 
         /** Size of a cell of an offered piece compared to a cell of the board. */
-        const val TRAY_SCALE = 0.443f
+        const val TRAY_SCALE = 0.447f
 
         // The area searched for offered pieces, in board heights below the board.
         const val TRAY_TOP = 0.03f
         const val TRAY_BOTTOM = 0.56f
 
-        const val SIZE_TOLERANCE = 0.3f
+        /** How far the box around a piece may be from whole cells; shadows make it larger. */
+        const val SIZE_TOLERANCE = 0.4f
         const val MIN_LINE_PIXELS = 6
 
         /** The sum of the red, green and blue differences of two colors. */

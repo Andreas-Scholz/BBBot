@@ -5,6 +5,10 @@ import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import io.github.andreasscholz.bbbot.R
+import io.github.andreasscholz.bbbot.game.HeuristicEvaluator
+import io.github.andreasscholz.bbbot.game.Solver
+import io.github.andreasscholz.bbbot.game.Strategy
+import io.github.andreasscholz.bbbot.ui.label
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +32,8 @@ class BotService : AccessibilityService() {
     private lateinit var screenCapture: ScreenCapture
     private lateinit var captureStore: CaptureStore
     private lateinit var overlay: BotOverlay
-    private lateinit var player: Player
+    private lateinit var settings: BotSettings
+    private var strategy = Strategy.BALANCED
     private var playing: Job? = null
     private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
 
@@ -37,7 +42,7 @@ class BotService : AccessibilityService() {
         captureStore = CaptureStore(this)
         overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshotOnRequest)
         overlay.setStatus(getString(R.string.overlay_ready))
-        player = Player(screenCapture, Finger(this), captureStore, onStatus = ::showStatus)
+        settings = BotSettings(this)
         mutableConnected.value = true
     }
 
@@ -69,6 +74,11 @@ class BotService : AccessibilityService() {
     }
 
     private fun startPlaying() {
+        strategy = settings.strategy
+        val solver = Solver(HeuristicEvaluator(strategy.weights))
+        val player = Player(screenCapture, Finger(this), captureStore, solver, onStatus = ::showStatus)
+        lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
+        showStatus(lastStatus)
         overlay.setPlaying(true)
         playing = scope.launch {
             try {
@@ -96,7 +106,8 @@ class BotService : AccessibilityService() {
     private fun showStatus(status: PlayStatus) {
         lastStatus = status
         val text = when (status.state) {
-            PlayStatus.State.PLAYING -> getString(R.string.overlay_playing, status.moves, status.lines)
+            PlayStatus.State.PLAYING ->
+                getString(R.string.overlay_playing, status.moves, status.lines, getString(strategy.label))
             PlayStatus.State.NO_GAME -> getString(R.string.overlay_no_game, status.moves)
             PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.moves)
         }

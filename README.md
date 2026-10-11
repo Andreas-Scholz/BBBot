@@ -34,6 +34,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Play loop                                 | done    |
 | Combo strategy                            | done    |
 | Stop and take a picture at the end        | done    |
+| Lookahead and selectable strategies       | done    |
 
 ## Using it
 
@@ -43,7 +44,9 @@ screenshot ──► recognition ──► solver ──► gestures
    other apps, and the app has no internet permission.
 3. Open Block Blast and start a game. A small BBBot panel appears on top of the game and
    disappears when the game is left. It can be dragged by its text.
-4. Press the play button in the panel. The bot plays until it is stopped with the same
+4. Choose in the app how the bot should play: safe, balanced or risky (see "Strategies").
+   The choice applies the next time the bot is started.
+5. Press the play button in the panel. The bot plays until it is stopped with the same
    button, the game is left or the offered pieces do not all fit any more. Touching the
    screen while it plays interrupts the piece it is dragging; it simply tries again.
 
@@ -114,7 +117,11 @@ ends with:
   games,
 - cleared rows and columns give a small bonus on top.
 
-If the pieces cannot all be placed, the solver places as many as it can.
+The best 64 sequences then get a closer look, which is too slow to give to all of them: every
+shape the game knows is tried in every position on the board a sequence leaves, and the board
+is rated by how good it still is after that next piece, on average over the shapes.
+
+If the pieces cannot all be placed, the bot stops instead of placing what still fits.
 
 ### Combos
 
@@ -122,24 +129,49 @@ Most points come from long combos: every clear is worth more the longer the row 
 before it. The game publishes no rules, and the guides on the web disagree on the details;
 they agree that a combo lasts as long as a line is cleared within three pieces. The solver
 plays by the strict reading, in which the third piece in a row that clears nothing ends the
-combo:
+combo.
 
-- ending the combo costs about as much as forty empty cells are worth, so it only happens
-  when the alternative is a ruined board,
-- a plan that uses up the offered pieces without a recent clear is rated lower, because the
-  next round then has to deliver one at once,
-- the best 24 plans are compared once more by how many of all shapes could clear a line on
-  the board they leave behind. That check is too slow to run for every plan, and it counts
-  for more the closer the combo is to running out.
+A running combo has a worth. Ending it costs that worth, and a board costs the worth times
+the chance that the combo ends on it: the chance that neither the next piece nor the ones
+after it, as far as the combo still allows, clear a line. What the next piece can do is read
+off the board, as the share of all shapes that could clear something at once; the pieces
+after it can be set up for and are given a chance of at least 30 %.
 
-Room for the 3×3 square and the lines of five keeps its weight, so the bot does not buy a
-clear with a board that the next big piece ends the game on.
+### Strategies
 
-The weights were tuned by letting the solver play simulated games against uniformly drawn
-pieces (`Simulator` in the unit tests) with an imitation of the scoring. The real game draws
-its pieces differently and scores differently in detail, so those games only rank settings
-against each other. There, the combo terms multiplied the points by about seven and the
-longest combo by about four without shortening the games.
+How much a combo is worth is the one setting that trades safety for points, and it is what
+the three strategies in the app differ in. In 384 simulated games each, with up to 1000
+rounds of three pieces:
+
+| Strategy | Combo worth | Rounds survived | Points per round | Points per game | One game in ten ends before round |
+|----------|-------------|-----------------|------------------|-----------------|-----------------------------------|
+| Safe     | 20          | 560             | 412              | 231,000         | 78                                |
+| Balanced | 50          | 465             | 1139             | 530,000         | 79                                |
+| Risky    | 110         | 304             | 2054             | 625,000         | 44                                |
+
+For comparison, the solver before the look at the next piece: 283 rounds, 1354 points per
+round, 383,000 points per game.
+
+These games are played against uniformly drawn pieces and scored by an imitation of the game
+(a point per block, ten points per line and more for several at once, times the length of
+the combo). The real game draws its pieces differently and scores differently in detail, so
+the table ranks the strategies against each other and says little about the points to expect
+on the phone.
+
+`StrategyLab` in the unit tests is the tool these numbers come from:
+
+```sh
+BBBOT_LAB=1 ./gradlew :app:testDebugUnitTest --rerun --tests '*StrategyLab*' -i | grep LAB
+```
+
+Also tried there, and left out because it did not help or made things worse:
+
+- a fixed penalty for a board without room for a 3×3 square or a line of five, on top of the
+  gradual rating of that room (games got about a tenth shorter),
+- a penalty for every shape that fits nowhere (no effect),
+- rating a board by the shape that turns out worst instead of the average (no effect),
+- more reward for clearing several lines at once (shorter games, fewer points),
+- more than 64 sequences for the closer look (no effect beyond 64).
 
 ## Building
 

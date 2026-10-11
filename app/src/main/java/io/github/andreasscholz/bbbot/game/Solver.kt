@@ -22,7 +22,7 @@ data class Plan(
  *
  * Every sequence is rated quickly by the board it ends with and by what happened on the way:
  * lines cleared, and whether the combo survived. The best few are then compared once more by
- * how well they keep the combo going in the next round, which takes too long to do for all.
+ * what they have to expect from the next piece, which takes too long to work out for all.
  */
 class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
 
@@ -51,11 +51,13 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
         private val widths = IntArray(pieces.size) { pieces[it].width }
         private val heights = IntArray(pieces.size) { pieces[it].height }
 
+        private val limit = evaluator.weights.candidates
+
         // A step is stored as pieceIndex * 64 + row * 8 + col.
         private val path = IntArray(pieces.size)
 
         /** The best sequences found so far, the best first. */
-        private val candidates = ArrayList<Candidate>(CANDIDATES + 1)
+        private val candidates = ArrayList<Candidate>(limit + 1)
 
         fun run(bits: Long, remaining: Int, depth: Int, reward: Double, lines: Int, gap: Int) {
             if (remaining == 0) {
@@ -105,7 +107,7 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
         }
 
         private fun offer(value: Double, depth: Int, bits: Long, lines: Int, gap: Int) {
-            if (candidates.size == CANDIDATES && value <= candidates.last().value) return
+            if (candidates.size == limit && value <= candidates.last().value) return
             // The same board reached in another order is the same candidate.
             val same = candidates.indexOfFirst { it.bits == bits && it.path.size == depth }
             if (same >= 0) {
@@ -117,11 +119,11 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
                 if (position < 0) candidates.size else position,
                 Candidate(value, path.copyOf(depth), bits, lines, gap),
             )
-            if (candidates.size > CANDIDATES) candidates.removeAt(candidates.lastIndex)
+            if (candidates.size > limit) candidates.removeAt(candidates.lastIndex)
         }
 
         fun result(start: Board): Plan {
-            val best = candidates.maxByOrNull { it.value + evaluator.comboOutlook(it.bits, it.gap) }
+            val best = candidates.maxByOrNull { it.value + evaluator.outlook(it.bits, it.gap) }
                 ?: return Plan(emptyList(), start, linesCleared = 0, complete = pieces.isEmpty())
             var board = start
             val placements = best.path.map { step ->
@@ -139,8 +141,5 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
         const val MAX_PIECES = 3
         const val CELLS = Board.SIZE * Board.SIZE
         const val STUCK_PENALTY = 1e6
-
-        /** How many of the best sequences are compared by their outlook for the combo. */
-        const val CANDIDATES = 24
     }
 }

@@ -88,15 +88,16 @@ class SolverTest {
 
     @Test
     fun `a board with a line about to be completed promises more for the combo`() {
-        val evaluator = HeuristicEvaluator()
+        // Without the look at the boards after the next piece, only the combo is left to rate.
+        val evaluator = HeuristicEvaluator(Weights(lookahead = 0.0))
         val nearlyDone = Board.parse(*Array(7) { "........" }, "XXXXXXX.")
         val scattered = Board.parse(*Array(7) { "........" }, "X.X.X.X.")
 
         for (gap in 0..2) {
-            assertTrue(evaluator.comboOutlook(nearlyDone.bits, gap) > evaluator.comboOutlook(scattered.bits, gap))
+            assertTrue(evaluator.outlook(nearlyDone.bits, gap) > evaluator.outlook(scattered.bits, gap))
         }
         // The fewer pieces are left to save the combo, the more the difference counts.
-        fun advantage(gap: Int) = evaluator.comboOutlook(nearlyDone.bits, gap) - evaluator.comboOutlook(scattered.bits, gap)
+        fun advantage(gap: Int) = evaluator.outlook(nearlyDone.bits, gap) - evaluator.outlook(scattered.bits, gap)
         assertTrue(advantage(2) > advantage(0))
     }
 

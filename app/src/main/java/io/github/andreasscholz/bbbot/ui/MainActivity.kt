@@ -6,28 +6,40 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.StringRes
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.andreasscholz.bbbot.R
 import io.github.andreasscholz.bbbot.bot.BotService
+import io.github.andreasscholz.bbbot.bot.BotSettings
+import io.github.andreasscholz.bbbot.game.Strategy
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,8 +86,64 @@ private fun MainScreen() {
             button = stringResource(R.string.main_open_game).takeIf { gameIntent != null },
             onClick = { gameIntent?.let(context::startActivity) },
         )
+        StrategyChoice(remember { BotSettings(context) })
     }
 }
+
+@Composable
+private fun StrategyChoice(settings: BotSettings) {
+    var chosen by remember { mutableStateOf(settings.strategy) }
+
+    Text(
+        text = stringResource(R.string.main_strategy_title),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(top = 32.dp),
+    )
+    Text(
+        text = stringResource(R.string.main_strategy_text),
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+    )
+    for (strategy in Strategy.entries) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = strategy == chosen,
+                    role = Role.RadioButton,
+                    onClick = {
+                        chosen = strategy
+                        settings.strategy = strategy
+                    },
+                )
+                .padding(vertical = 8.dp),
+        ) {
+            RadioButton(selected = strategy == chosen, onClick = null)
+            Column(modifier = Modifier.padding(start = 12.dp)) {
+                Text(text = stringResource(strategy.label), style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(strategy.description), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+/** The name of a strategy as shown to the user. */
+@get:StringRes
+val Strategy.label: Int
+    get() = when (this) {
+        Strategy.SAFE -> R.string.strategy_safe
+        Strategy.BALANCED -> R.string.strategy_balanced
+        Strategy.RISKY -> R.string.strategy_risky
+    }
+
+@get:StringRes
+private val Strategy.description: Int
+    get() = when (this) {
+        Strategy.SAFE -> R.string.strategy_safe_text
+        Strategy.BALANCED -> R.string.strategy_balanced_text
+        Strategy.RISKY -> R.string.strategy_risky_text
+    }
 
 @Composable
 private fun Step(title: String, text: String, button: String?, onClick: () -> Unit) {

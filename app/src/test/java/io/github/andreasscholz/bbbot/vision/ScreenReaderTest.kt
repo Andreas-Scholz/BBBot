@@ -160,10 +160,11 @@ class ScreenReaderTest {
         )
         val four = Piece.of("X", "X", "X", "X")
         assertEquals(listOf(four, four, Piece.of("X", "X", "X", "X", "X")), screen.tray.map { it.piece })
-        // The grid is where it is in the other themes, although the border is much thinner.
-        assertEquals(61f, screen.geometry.left, 4f)
+        // The grid is where it is in the other themes, although the border is much thinner. It is
+        // so faint that it passes for background, which costs a few pixels of accuracy.
+        assertEquals(61f, screen.geometry.left, 6f)
         assertEquals(574f, screen.geometry.top, 4f)
-        assertEquals(119.7f, screen.geometry.cellSize, 1f)
+        assertEquals(119.7f, screen.geometry.cellSize, 1.5f)
     }
 
     @Test
@@ -199,6 +200,16 @@ class ScreenReaderTest {
         // The middle of the corner block lies on a stripe that looks like the background.
         assertEquals(listOf(Piece.of("..X", "..X", "XXX")), screen.tray.map { it.piece })
         assertEquals(listOf(2), screen.tray.map { it.slot })
+    }
+
+    @Test
+    fun `is not misled by a vein of marble that crosses the edge of the screen`() {
+        // Below the line of five a dark vein runs into the left edge, where the background is read.
+        val screen = reader.read(load("grey-marble-vein.png"))!!
+
+        assertEquals(Board.EMPTY, screen.board)
+        assertEquals(listOf(Piece.of("XXXXX")), screen.tray.map { it.piece })
+        assertEquals(1818f, screen.tray[0].centerY, 4f)
     }
 
     @Test

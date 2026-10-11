@@ -37,7 +37,8 @@ class Player(
     private val captureStore: CaptureStore,
     private val onStatus: (PlayStatus) -> Unit,
 ) {
-    private val reader = ScreenReader()
+    private var rejection = ""
+    private val reader = ScreenReader(onReject = { rejection = it })
     private val solver = Solver()
 
     /**
@@ -66,7 +67,7 @@ class Player(
                     if (unreadable >= UNREADABLE_BEFORE_REPORT) onStatus(PlayStatus(PlayStatus.State.NO_GAME, moves, lines))
                     if (screen == null && unreadable == UNREADABLE_BEFORE_SAVE) {
                         val file = captureStore.save(shot, "unreadable")
-                        Log.i(TAG, "Cannot read the screen after $moves moves, saved ${file.name}")
+                        Log.i(TAG, "Cannot read the screen after $moves moves ($rejection), saved ${file.name}")
                     }
                     delay(RETRY_MS)
                     continue

@@ -45,7 +45,7 @@ data class Weights(
      */
     val comboGrowth: Double = 0.05,
     /** The most a combo can be worth, as a multiple of [comboBreak]. */
-    val comboCap: Double = 6.0,
+    val comboCap: Double = 11.0,
     /**
      * The chance taken for a piece after the next one to clear a line. What the next piece can
      * do is read off the board; the pieces after it can be set up for, so they are given at
@@ -69,9 +69,9 @@ data class Weights(
      * How many of the very best ways are tried against whole rounds drawn at random, see
      * [RoundSampler]; 0 switches that off.
      */
-    val roundCandidates: Int = 16,
+    val roundCandidates: Int = 64,
     /** How many rounds each of them is tried against. */
-    val roundSamples: Int = 32,
+    val roundSamples: Int = 128,
     /**
      * By how much the share of rounds that cannot clear anything is multiplied to get the chance
      * of losing the combo. That a round can clear a line does not mean that it is wise to, so

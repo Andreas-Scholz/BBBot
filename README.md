@@ -202,13 +202,15 @@ behind the score, it takes the combo for a long one.
 
 ### Looking a whole round ahead
 
-The sixteen sequences that come out best are tried against 32 rounds of three pieces drawn
-at random, the same rounds for all of them (`RoundSampler`). That counts what the rating
+The 64 sequences that got the closer look are also tried against 128 rounds of three pieces
+drawn at random, the same rounds for all of them (`RoundSampler`). That counts what the rating
 above only guesses: in how many rounds a line could be cleared, and in how many the pieces
 would not all fit. The share of rounds that cannot clear anything, doubled because being able
 to clear is not the same as wanting to, takes the place of the guessed chance of losing the
-combo. In simulated games this made games 11 % longer and brought 11 % more points at the
-same setting, and it shifted the best setting towards defending the combo harder.
+combo. In simulated games, sixteen sequences tried against 32 rounds made games 11 % longer
+and brought 11 % more points at the same setting, and shifted the best setting towards
+defending the combo harder. 64 sequences against 128 rounds added another 7 % and 6 %. On the
+phone a decision took 27 milliseconds on average with the smaller numbers, so there is room.
 
 ### Strategies
 

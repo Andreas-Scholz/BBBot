@@ -55,7 +55,10 @@ class Player(
                     // Also seen briefly in every game while lines vanish and new pieces arrive.
                     unreadable++
                     if (unreadable >= UNREADABLE_BEFORE_REPORT) onStatus(PlayStatus(PlayStatus.State.NO_GAME, moves, lines))
-                    if (screen == null && unreadable == UNREADABLE_BEFORE_SAVE) captureStore.save(shot, "unreadable")
+                    if (screen == null && unreadable == UNREADABLE_BEFORE_SAVE) {
+                        val file = captureStore.save(shot, "unreadable")
+                        Log.i(TAG, "Cannot read the screen after $moves moves, saved ${file.name}")
+                    }
                     delay(RETRY_MS)
                     continue
                 }

@@ -105,6 +105,7 @@ class BotOverlay(private val service: AccessibilityService, onToggle: () -> Unit
 
     private companion object {
         const val START_X_DP = 8
-        const val START_Y_DP = 40
+        // High enough to leave the score and the symbol behind it uncovered.
+        const val START_Y_DP = 0
     }
 }

@@ -158,45 +158,54 @@ class ScreenReader(
     }
 
     /**
-     * Makes up for an edge of the board that was taken for background. A row or column of
-     * blocks in the color of the background, pink blocks on pink for example, ends the band
-     * early. The board is square, so the missing strip is as wide as the difference of the
-     * sides, and it lies on the side where more of it is not background.
+     * Makes up for edges of the board that were taken for background. A row or column of blocks
+     * in the color of the background, pink blocks on pink for example, ends the band early, on
+     * one side or on both. The board is square, so what is missing is as wide as the difference
+     * of the sides; it is split between the two sides in the way that takes in the most pixels
+     * that are not background.
      */
     private fun completed(scene: Scene, frame: Frame): Frame {
         val missing = abs(frame.width - frame.height)
         val longer = maxOf(frame.width, frame.height)
         if (missing <= longer * SQUARE_TOLERANCE || missing > longer * MAX_MISSING) return frame
+        val tooShort = frame.height < frame.width
 
-        fun foreground(left: Int, top: Int, right: Int, bottom: Int): Float {
-            if (left < 0 || top < 0 || right >= scene.shot.width || bottom >= scene.shot.height) return -1f
-            var hits = 0
-            var total = 0
-            for (y in top..bottom step SCAN_STEP) {
-                for (x in left..right step SCAN_STEP) {
-                    total++
-                    if (scene.isForeground(x, y)) hits++
-                }
+        /** The foreground in the line of pixels [distance] outside the frame, before it or after it. */
+        fun foreground(distance: Int, before: Boolean): Int {
+            val line = if (tooShort) {
+                if (before) frame.top - distance else frame.bottom + distance
+            } else {
+                if (before) frame.left - distance else frame.right + distance
             }
-            return hits.toFloat() / total
+            val limit = if (tooShort) scene.shot.height else scene.shot.width
+            if (line < 0 || line >= limit) return Int.MIN_VALUE / 2
+            var hits = 0
+            if (tooShort) {
+                for (x in frame.left..frame.right step SCAN_STEP) if (scene.isForeground(x, line)) hits++
+            } else {
+                for (y in frame.top..frame.bottom step SCAN_STEP) if (scene.isForeground(line, y)) hits++
+            }
+            return hits
         }
 
-        return if (frame.height < frame.width) {
-            val above = foreground(frame.left, frame.top - missing, frame.right, frame.top - 1)
-            val below = foreground(frame.left, frame.bottom + 1, frame.right, frame.bottom + missing)
-            if (above > below) {
-                Frame(frame.left, frame.top - missing, frame.right, frame.bottom)
-            } else {
-                Frame(frame.left, frame.top, frame.right, frame.bottom + missing)
+        // With `before` lines added in front, `missing - before` are added behind.
+        var behind = (1..missing).sumOf { foreground(it, before = false) }
+        var inFront = 0
+        var best = behind
+        var bestBefore = 0
+        for (before in 1..missing) {
+            inFront += foreground(before, before = true)
+            behind -= foreground(missing - before + 1, before = false)
+            if (inFront + behind > best) {
+                best = inFront + behind
+                bestBefore = before
             }
+        }
+        val after = missing - bestBefore
+        return if (tooShort) {
+            Frame(frame.left, frame.top - bestBefore, frame.right, frame.bottom + after)
         } else {
-            val before = foreground(frame.left - missing, frame.top, frame.left - 1, frame.bottom)
-            val after = foreground(frame.right + 1, frame.top, frame.right + missing, frame.bottom)
-            if (before > after) {
-                Frame(frame.left - missing, frame.top, frame.right, frame.bottom)
-            } else {
-                Frame(frame.left, frame.top, frame.right + missing, frame.bottom)
-            }
+            Frame(frame.left - bestBefore, frame.top, frame.right + after, frame.bottom)
         }
     }
 

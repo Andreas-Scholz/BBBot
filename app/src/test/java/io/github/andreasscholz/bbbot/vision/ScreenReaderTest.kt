@@ -236,6 +236,27 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `finds the whole board when its top and bottom rows are filled in the color of the background`() {
+        val screen = reader.read(load("gingham-pink-top-and-bottom.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "XXXXX...",
+                "XXX.....",
+                "XXX.....",
+                "........",
+                "........",
+                "XXX.....",
+                "XXX.....",
+                "XXX.XXXX",
+            ),
+            screen.board,
+        )
+        assertEquals(listOf(Piece.of("X", "X", "X", "X"), Piece.of("XXX", "XXX")), screen.tray.map { it.piece })
+        assertEquals(580f, screen.geometry.top, 4f)
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

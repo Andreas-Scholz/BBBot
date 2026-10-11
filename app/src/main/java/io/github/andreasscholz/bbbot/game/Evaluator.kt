@@ -22,10 +22,11 @@ data class Weights(
     /** Per position where a line of five still fits, up to [fitCap] positions per direction. */
     val lineFit: Double = 0.5,
     val fitCap: Int = 6,
-    /** Per row or column cleared on the way to the board. */
+    /**
+     * For a clear, per single line it is worth in the game: 1 for one line, 2 for two at once,
+     * 6 for three at once (see [Scoring]).
+     */
     val line: Double = 1.0,
-    /** Extra per additional line cleared by the same piece. */
-    val multiLine: Double = 1.0,
     /**
      * Per piece that clears anything, however many lines. The game lengthens the combo by one
      * for every such piece, so two pieces clearing a line each do more for it than one piece
@@ -98,7 +99,7 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
 
     /** Reward for clearing [lines] rows and columns with one piece. */
     fun lineReward(lines: Int): Double =
-        if (lines == 0) 0.0 else weights.line * lines + weights.multiLine * (lines - 1) + weights.clearingPiece
+        if (lines == 0) 0.0 else weights.line * Scoring.worth(lines) + weights.clearingPiece
 
     /** What losing a combo of [length] clearing pieces costs; negative. */
     fun comboWorth(length: Int): Double =

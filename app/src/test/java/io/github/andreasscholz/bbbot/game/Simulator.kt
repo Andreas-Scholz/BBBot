@@ -14,13 +14,14 @@ data class GameResult(
 /**
  * Plays games against randomly drawn pieces to compare solver settings.
  *
- * The combo follows the rule read off traces of the real game: it lasts as long as every round
- * of three pieces clears at least one line. The scoring is only imitated: a point per block
- * placed, and for every clear ten points per line, more for several lines at once, multiplied
- * by the length of the combo. That a clear earns more the longer the combo is, by orders of
- * magnitude in a long game, is what the traces show; the exact numbers are not known. The real
- * game also does not draw its pieces uniformly. So the results rank settings against each
- * other and say little about the points to expect on the phone.
+ * The combo and the scoring follow what was read off traces of the real game: a combo lasts as
+ * long as every round of three pieces clears at least one line; a block placed earns a point;
+ * a clear earns ten points times the length of the combo, counted in pieces that cleared
+ * something, times 1, 2 or 6 for one, two or three lines at once (see [Scoring]). The ten is
+ * arbitrary: what a line is worth per step of the combo was 76 points in the one game it was
+ * measured in, and where that number comes from is not known. The real game also does not draw
+ * its pieces uniformly. So the results rank settings against each other and say little about
+ * the points to expect on the phone.
  */
 class Simulator(private val solver: Solver, private val piecesPerRound: Int = 3) {
 
@@ -45,7 +46,7 @@ class Simulator(private val solver: Solver, private val piecesPerRound: Int = 3)
                     lines += result.linesCleared
                     combo++
                     longestCombo = maxOf(longestCombo, combo)
-                    score += 10L * result.linesCleared * (result.linesCleared + 1) / 2 * combo
+                    score += 10L * Scoring.worth(result.linesCleared) * combo
                 }
             }
             check(board == plan.board) { "The plan does not lead to the board it promises" }

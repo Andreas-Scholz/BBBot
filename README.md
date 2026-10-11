@@ -176,8 +176,13 @@ traces of real games (see "Traces" below):
   combo ends.
 - A clear earns more the longer the combo is, by orders of magnitude: in one game a single
   line was worth about 9,000 points with a long combo and about 10 right after it ended.
-- The combo grows by one for every piece that clears something, not for every line (seen by
-  the player; the game shows the number only in passing).
+- The worth of a line grows by a fixed step with every piece that clears something, whether
+  it clears one line or several. In the game this was measured in, a single line was worth
+  11,113 points and 76.09 more with each such piece, and 24 single clears lay within 1.1
+  points of that straight line. So the combo counts pieces, not lines.
+- Two lines at once earn exactly twice a single line, three lines six times. Four and more
+  were not seen yet.
+- A block placed earns a point, which reaches the score a second or two late.
 
 The solver plays by that:
 
@@ -210,11 +215,10 @@ For comparison: a combo of constant worth reaches 577 rounds and 2,061,000 point
 solver that does not care about combos 591 rounds and 231,000 points. Limits above 11× lose
 both rounds and points.
 
-These games follow the combo rule above, but they are played against uniformly drawn pieces
-and scored by an imitation of the game (a point per block, ten points per line and more for
-several at once, times the length of the combo). The real game draws its pieces differently
-and scores differently in detail, so the table ranks the strategies against each other and
-says little about the points to expect on the phone.
+These games follow the rules above: a point per block, and per clear ten points times the
+length of the combo, times 1, 2 or 6 for one, two or three lines. The ten is arbitrary, and
+the pieces are drawn uniformly, which the real game does not do. So the table ranks the
+strategies against each other and says little about the points to expect on the phone.
 
 `StrategyLab` in the unit tests is the tool these numbers come from:
 
@@ -230,6 +234,8 @@ Also tried there, and left out because it did not help or made things worse:
 - rating a board by the shape that turns out worst instead of the average (no effect),
 - more reward for clearing several lines at once (shorter games, fewer points),
 - a strong preference for clearing one line at a time (the board suffers; a small one is in),
+- going after three lines at once because they pay six times a single line, with a larger
+  reward for them or one that grows with the combo (no gain; the combo gets shorter),
 - not counting a round against the combo when its pieces could not clear anything, after it
   looked that way in one game (the traces showed the combo ending all the same),
 - more than 64 sequences for the closer look (no effect beyond 64).

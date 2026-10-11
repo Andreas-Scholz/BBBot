@@ -2,22 +2,19 @@ package io.github.andreasscholz.bbbot.bot
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.graphics.Bitmap
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import io.github.andreasscholz.bbbot.R
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 /**
  * The bot's hands and eyes. Android only lets an accessibility service take screenshots of
@@ -28,12 +25,18 @@ class BotService : AccessibilityService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var screenCapture: ScreenCapture
+    private lateinit var captureStore: CaptureStore
     private lateinit var overlay: BotOverlay
+    private lateinit var player: Player
+    private var playing: Job? = null
+    private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
 
     override fun onServiceConnected() {
         screenCapture = ScreenCapture(this)
-        overlay = BotOverlay(this, onCapture = ::saveScreenshot)
+        captureStore = CaptureStore(this)
+        overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshot)
         overlay.setStatus(getString(R.string.overlay_ready))
+        player = Player(screenCapture, Finger(this), captureStore, onStatus = ::showStatus)
         mutableConnected.value = true
     }
 
@@ -43,7 +46,11 @@ class BotService : AccessibilityService() {
             GAME_PACKAGE -> overlay.show()
             // The panel itself and system windows such as the notification shade also report in.
             null, packageName, SYSTEM_UI_PACKAGE -> Unit
-            else -> overlay.hide()
+            else -> {
+                // Never touch the screen of anything but the game.
+                stopPlaying()
+                overlay.hide()
+            }
         }
     }
 
@@ -56,6 +63,42 @@ class BotService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
+    private fun togglePlaying() {
+        if (playing?.isActive == true) stopPlaying() else startPlaying()
+    }
+
+    private fun startPlaying() {
+        overlay.setPlaying(true)
+        playing = scope.launch {
+            try {
+                player.play()
+            } catch (e: CancellationException) {
+                overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.lines))
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Playing failed", e)
+                overlay.setStatus(getString(R.string.overlay_error))
+            } finally {
+                overlay.setPlaying(false)
+            }
+        }
+    }
+
+    private fun stopPlaying() {
+        playing?.cancel()
+        playing = null
+    }
+
+    private fun showStatus(status: PlayStatus) {
+        lastStatus = status
+        val text = when (status.state) {
+            PlayStatus.State.PLAYING -> getString(R.string.overlay_playing, status.moves, status.lines)
+            PlayStatus.State.NO_GAME -> getString(R.string.overlay_no_game, status.moves)
+            PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.moves, status.lines)
+        }
+        overlay.setStatus(text)
+    }
+
     /** Saves what the bot sees as a PNG, for working on the recognition and for reporting problems. */
     private fun saveScreenshot() {
         scope.launch {
@@ -63,10 +106,12 @@ class BotService : AccessibilityService() {
                 // Without the panel, so the picture shows the whole game.
                 overlay.hide()
                 delay(PANEL_HIDE_MS)
-                val bitmap = screenCapture.captureBitmap()
+                val shot = screenCapture.capture()
                 overlay.show()
-                val file = withContext(Dispatchers.IO) { writePng(bitmap) }
+                val file = captureStore.save(shot, "capture")
                 overlay.setStatus(getString(R.string.overlay_saved, file.name))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Saving a screenshot failed", e)
                 overlay.show()
@@ -75,21 +120,11 @@ class BotService : AccessibilityService() {
         }
     }
 
-    private fun writePng(bitmap: Bitmap): File {
-        val directory = File(getExternalFilesDir(null), CAPTURE_DIRECTORY).apply { mkdirs() }
-        val file = File(directory, "capture-${LocalDateTime.now().format(FILE_TIME)}.png")
-        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
-        return file
-    }
-
     companion object {
         const val GAME_PACKAGE = "com.block.juggle"
         private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         private const val TAG = "BBBot"
-        private const val CAPTURE_DIRECTORY = "captures"
         private const val PANEL_HIDE_MS = 150L
-        private val FILE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")
 
         private val mutableConnected = MutableStateFlow(false)
 

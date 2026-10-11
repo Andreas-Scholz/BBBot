@@ -71,6 +71,53 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `reads the marble theme with its veined background and the panel on top`() {
+        val screen = reader.read(load("marble-with-panel.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "XXXX...X",
+                ".X.X..X.",
+                "X.XXX...",
+                ".XXXX.X.",
+                "X.XX..XX",
+                ".XXXX.XX",
+                "XXXXX...",
+                "XXX.X.XX",
+            ),
+            screen.board,
+        )
+        assertEquals(
+            listOf(Piece.of(".X", "XX", ".X"), Piece.of("X.", ".X"), Piece.of("X.", ".X")),
+            screen.tray.map { it.piece },
+        )
+        assertEquals(61f, screen.geometry.left, 2f)
+        assertEquals(580f, screen.geometry.top, 2f)
+        assertEquals(1818f, screen.tray[0].centerY, 4f)
+    }
+
+    @Test
+    fun `reads the pink theme`() {
+        val screen = reader.read(load("pink-with-panel.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "XX.XXXXX",
+                ".XXXXXXX",
+                "........",
+                "........",
+                ".XX...XX",
+                "......XX",
+                "...X...X",
+                "........",
+            ),
+            screen.board,
+        )
+        val square = Piece.of("XX", "XX")
+        assertEquals(listOf(square, square, Piece.of("XXX", "XXX", "XXX")), screen.tray.map { it.piece })
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

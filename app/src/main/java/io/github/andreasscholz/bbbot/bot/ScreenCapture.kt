@@ -22,18 +22,16 @@ class ScreenCapture(private val service: AccessibilityService) {
     private val mutex = Mutex()
     private var lastCapture = 0L
 
-    suspend fun captureBitmap(): Bitmap = mutex.withLock {
-        // Android rejects a screenshot requested too soon after the previous one.
-        delay(lastCapture + MIN_INTERVAL_MS - SystemClock.uptimeMillis())
-        try {
-            request()
-        } finally {
-            lastCapture = SystemClock.uptimeMillis()
-        }
-    }
-
     suspend fun capture(): Screenshot {
-        val bitmap = captureBitmap()
+        val bitmap = mutex.withLock {
+            // Android rejects a screenshot requested too soon after the previous one.
+            delay(lastCapture + MIN_INTERVAL_MS - SystemClock.uptimeMillis())
+            try {
+                request()
+            } finally {
+                lastCapture = SystemClock.uptimeMillis()
+            }
+        }
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         return Screenshot(bitmap.width, bitmap.height, pixels).also { bitmap.recycle() }

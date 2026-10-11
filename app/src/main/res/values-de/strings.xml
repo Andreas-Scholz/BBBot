@@ -14,6 +14,13 @@
     <string name="service_description">Lässt BBBot Block Blast spielen: Der Dienst macht Screenshots, solange das Spiel im Vordergrund ist, und zieht die Steine aufs Spielfeld. BBBot liest keine Inhalte anderer Apps und sendet nichts irgendwohin.</string>
 
     <string name="overlay_ready">BBBot ist bereit</string>
+    <string name="overlay_start">Spielen starten</string>
+    <string name="overlay_stop">Spielen stoppen</string>
+    <string name="overlay_stopped">Gestoppt · Züge: %1$d · Reihen: %2$d</string>
+    <string name="overlay_playing">Spielt · Züge: %1$d · Reihen: %2$d</string>
+    <string name="overlay_no_game">Kein Spiel zu sehen · Züge: %1$d</string>
+    <string name="overlay_no_move">Kein Stein passt · Züge: %1$d · Reihen: %2$d</string>
+    <string name="overlay_error">Durch einen Fehler gestoppt</string>
     <string name="overlay_capture">Screenshot speichern</string>
     <string name="overlay_saved">%1$s gespeichert</string>
     <string name="overlay_capture_failed">Screenshot fehlgeschlagen</string>

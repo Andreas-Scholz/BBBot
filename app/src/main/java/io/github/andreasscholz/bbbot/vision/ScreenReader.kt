@@ -352,8 +352,8 @@ class ScreenReader(
         for (cell in colors.indices) {
             if (distance(colors[cell], empty) > BLOCK_DISTANCE) bits = bits or (1L shl cell)
         }
-        // Rows and columns that are still full are in the middle of being cleared.
-        if (Board.fullLines(bits) != 0L) return reject("board has full lines:\n${Board(bits)}")
+        // A full row is no reason to doubt the board: a game can begin with one. Rows that are in
+        // the middle of being cleared are told apart by whoever looks twice.
         return Board(bits)
     }
 

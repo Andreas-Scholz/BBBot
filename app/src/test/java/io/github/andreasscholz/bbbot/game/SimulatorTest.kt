@@ -6,9 +6,12 @@ import kotlin.random.Random
 
 class SimulatorTest {
 
+    /** With fewer rounds tried per decision than on the phone, to keep the tests short. */
+    private fun quick(weights: Weights) = Solver(HeuristicEvaluator(weights.copy(roundCandidates = 8, roundSamples = 16)))
+
     @Test
     fun `solver survives long games against random pieces`() {
-        val simulator = Simulator(Solver())
+        val simulator = Simulator(quick(Weights()))
         val games = 20
         val maxRounds = 300
         val results = List(games) { simulator.play(Random(it), maxRounds) }
@@ -25,7 +28,7 @@ class SimulatorTest {
     fun `the risky strategy scores more per round than the safe one`() {
         // The strategies only part ways once a combo is long, so the games must be long too.
         fun perRound(strategy: Strategy): Double {
-            val simulator = Simulator(Solver(HeuristicEvaluator(strategy.weights)))
+            val simulator = Simulator(quick(strategy.weights))
             val results = List(16) { simulator.play(Random(300 + it), maxRounds = 500) }
             return results.sumOf { it.score } / results.sumOf { it.rounds }.toDouble()
         }
@@ -40,7 +43,7 @@ class SimulatorTest {
     @Test
     fun `caring about the combo makes combos much longer`() {
         fun averageCombo(weights: Weights): Double {
-            val simulator = Simulator(Solver(HeuristicEvaluator(weights)))
+            val simulator = Simulator(quick(weights))
             return List(12) { simulator.play(Random(100 + it), maxRounds = 150).longestCombo }.average()
         }
 

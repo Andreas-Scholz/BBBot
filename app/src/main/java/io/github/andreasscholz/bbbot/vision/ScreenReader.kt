@@ -19,6 +19,41 @@ data class BoardGeometry(val left: Float, val top: Float, val cellSize: Float) {
 /** A piece waiting below the board, with the middle of its bounding box on the screen. */
 data class TrayPiece(val slot: Int, val piece: Piece, val centerX: Float, val centerY: Float)
 
+/**
+ * Where the board was found beyond doubt on a screen of [screenWidth] by [screenHeight] pixels:
+ * its outline with the border and its grid. The game keeps the board in the same place in
+ * every theme, so this serves when a later screenshot does not show the board clearly.
+ */
+data class KnownBoard(
+    val screenWidth: Int,
+    val screenHeight: Int,
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int,
+    val gridLeft: Float,
+    val gridTop: Float,
+    val cellSize: Float,
+) {
+    /** A line of text to keep it in, see [decode]. */
+    fun encode(): String = listOf(screenWidth, screenHeight, left, top, right, bottom, gridLeft, gridTop, cellSize).joinToString(",")
+
+    companion object {
+        fun decode(text: String?): KnownBoard? {
+            val parts = text?.split(",") ?: return null
+            if (parts.size != 9) return null
+            return try {
+                KnownBoard(
+                    parts[0].toInt(), parts[1].toInt(), parts[2].toInt(), parts[3].toInt(), parts[4].toInt(),
+                    parts[5].toInt(), parts[6].toFloat(), parts[7].toFloat(), parts[8].toFloat(),
+                )
+            } catch (e: NumberFormatException) {
+                null
+            }
+        }
+    }
+}
+
 /** Everything the bot needs to know about one screenshot of the game. */
 data class GameScreen(val geometry: BoardGeometry, val board: Board, val tray: List<TrayPiece>)
 
@@ -36,6 +71,14 @@ class ScreenReader(
     private val onReject: (String) -> Unit = {},
 ) {
 
+    /**
+     * The board as it was last found beyond doubt, or as given from an earlier run. Blocks in
+     * the color of the background, pink on pink for example, can hide so much of the board that
+     * it cannot be found by looking; it is then taken to be where it was, as long as enough of
+     * that place still looks like a board.
+     */
+    var known: KnownBoard? = null
+
     private fun <T> reject(reason: String): T? {
         onReject(reason)
         return null
@@ -44,17 +87,29 @@ class ScreenReader(
     /** Returns null when the screenshot does not show a game waiting for a move. */
     fun read(shot: Screenshot): GameScreen? {
         val scene = Scene(shot)
-        val frame = findFrame(scene) ?: return null
-        // The grid is where the border ends, and the themes draw borders of different widths.
-        val borderX = borderThickness(shot, frame, alongRows = true)
-        val borderY = borderThickness(shot, frame, alongRows = false)
-        val geometry = BoardGeometry(
-            left = (frame.left + borderX).toFloat(),
-            top = (frame.top + borderY).toFloat(),
-            cellSize = (frame.width - 2 * borderX) / Board.SIZE.toFloat(),
-        )
+        val found = findFrame(scene) ?: return null
+        val frame = found.frame
+        val remembered = found.remembered
+        val geometry = if (remembered != null) {
+            BoardGeometry(remembered.gridLeft, remembered.gridTop, remembered.cellSize)
+        } else {
+            // The grid is where the border ends, and the themes draw borders of different widths.
+            val borderX = borderThickness(shot, frame, alongRows = true)
+            val borderY = borderThickness(shot, frame, alongRows = false)
+            BoardGeometry(
+                left = (frame.left + borderX).toFloat(),
+                top = (frame.top + borderY).toFloat(),
+                cellSize = (frame.width - 2 * borderX) / Board.SIZE.toFloat(),
+            )
+        }
         val board = readBoard(shot, geometry) ?: return null
         val tray = readTray(scene, frame, geometry) ?: return null
+        if (found.exact) {
+            known = KnownBoard(
+                shot.width, shot.height, frame.left, frame.top, frame.right, frame.bottom,
+                geometry.left, geometry.top, geometry.cellSize,
+            )
+        }
         return GameScreen(geometry, board, tray)
     }
 
@@ -103,17 +158,40 @@ class ScreenReader(
         val height: Int get() = bottom - top + 1
     }
 
-    /** The board with its border: the tallest band that is not background nearly all the way across. */
-    private fun findFrame(scene: Scene): Frame? {
+    /**
+     * A board that was found: [exact] when it came out square by itself, [remembered] when it
+     * could not be found and was taken from [known] instead.
+     */
+    private class Found(val frame: Frame, val exact: Boolean, val remembered: KnownBoard? = null)
+
+    /** [known], if enough of the rows it covers still look like rows of a board. */
+    private fun remembered(shot: Screenshot, boardRows: BooleanArray): Found? {
+        val board = known ?: return null
+        if (board.screenWidth != shot.width || board.screenHeight != shot.height) return null
+        val rows = (board.top..board.bottom).count { boardRows[it] }
+        if (rows < (board.bottom - board.top + 1) * MIN_SUPPORT) return null
+        return Found(Frame(board.left, board.top, board.right, board.bottom), exact = false, remembered = board)
+    }
+
+    /**
+     * The board with its border: the tallest band that is not background nearly all the way
+     * across. Rows of blocks in the color of the background are only partly "not background";
+     * they may be part of the band, but cannot make one up: a good share of the band's rows has
+     * to be covered nearly all the way.
+     */
+    private fun findFrame(scene: Scene): Found? {
         val shot = scene.shot
         val from = (shot.width * 0.1f).toInt()
         val to = (shot.width * 0.9f).toInt()
         val needed = ((to - from) / SCAN_STEP * COVERAGE).toInt()
+        val neededPartly = ((to - from) / SCAN_STEP * PARTLY_COVERED).toInt()
 
         var bestTop = 0
         var bestBottom = -1
         var runTop = -1
         var lastHit = -1
+        var coveredInRun = 0
+        val boardRows = BooleanArray(shot.height)
         for (y in 0 until shot.height) {
             var hits = 0
             var x = from
@@ -121,18 +199,28 @@ class ScreenReader(
                 if (scene.isForeground(x, y)) hits++
                 x += SCAN_STEP
             }
-            if (hits >= needed) {
+            if (hits >= neededPartly) {
                 // The shaded edges of blocks look like the background, so short gaps are bridged.
-                if (runTop < 0 || y - lastHit > shot.width * MAX_GAP) runTop = y
+                if (runTop < 0 || y - lastHit > shot.width * MAX_GAP) {
+                    runTop = y
+                    coveredInRun = 0
+                }
                 lastHit = y
-                if (lastHit - runTop > bestBottom - bestTop) {
+                if (hits >= needed) {
+                    boardRows[y] = true
+                    coveredInRun++
+                }
+                val length = lastHit - runTop + 1
+                if (length > bestBottom - bestTop + 1 && coveredInRun >= length * MIN_SUPPORT) {
                     bestTop = runTop
                     bestBottom = lastHit
                 }
             }
         }
         val height = bestBottom - bestTop + 1
-        if (height < shot.width * MIN_BOARD_WIDTH) return reject("no board: the tallest band is $height pixels")
+        if (height < shot.width * MIN_BOARD_WIDTH) {
+            return remembered(shot, boardRows) ?: reject("no board: the tallest band is $height pixels")
+        }
 
         val rows = height / SCAN_STEP
         var left = -1
@@ -149,12 +237,18 @@ class ScreenReader(
                 right = x
             }
         }
-        if (left < 0) return reject("no board: no column of the band is covered")
-        val frame = completed(scene, Frame(left, bestTop, right, bestBottom))
+        if (left < 0) return remembered(shot, boardRows) ?: reject("no board: no column of the band is covered")
+        val band = Frame(left, bestTop, right, bestBottom)
+        if (abs(band.width - band.height) <= band.width * SQUARE_TOLERANCE) return Found(band, exact = true)
+
+        // Not square: part of the board was taken for background. Where it was is the best guess,
+        // working out what is missing the second best.
+        remembered(shot, boardRows)?.let { return it }
+        val frame = completed(scene, band)
         if (abs(frame.width - frame.height) > frame.width * SQUARE_TOLERANCE) {
             return reject("board is not square: ${frame.width} x ${frame.height}")
         }
-        return frame
+        return Found(frame, exact = false)
     }
 
     /**
@@ -370,11 +464,17 @@ class ScreenReader(
         const val SCAN_STEP = 4
         const val COVERAGE = 0.9f
 
+        /** The part of a row that must be foreground for it to possibly belong to the board. */
+        const val PARTLY_COVERED = 0.3f
+
         // Fractions of the screen width.
         const val MAX_GAP = 0.03f
         const val MIN_BOARD_WIDTH = 0.6f
 
         const val SQUARE_TOLERANCE = 0.04f
+
+        /** The part of a board's rows that must be covered nearly all the way to take it for one. */
+        const val MIN_SUPPORT = 0.35f
 
         /** The most of a side that may be missing and made up for, as a fraction of the side. */
         const val MAX_MISSING = 0.4f

@@ -257,6 +257,66 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `reads a board with rows inside it in the color of the background`() {
+        // Two rows inside the board are mostly pink on pink, which used to break it into bands.
+        val screen = reader.read(load("gingham-pink-rows-inside.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "XXXXX...",
+                "........",
+                "XXXXX...",
+                "........",
+                ".......X",
+                ".......X",
+                ".......X",
+                "XXXX...X",
+            ),
+            screen.board,
+        )
+        assertEquals(listOf(Piece.of("XXX", "X..", "X.."), Piece.of(".X", "XX", ".X")), screen.tray.map { it.piece })
+        assertEquals(listOf(0, 2), screen.tray.map { it.slot })
+    }
+
+    @Test
+    fun `takes the board to be where it was when it cannot be found`() {
+        // Stripes in the color of the background along the edges of every row of cells cut the
+        // board into bands too thin to be one, without touching the middle of any cell.
+        val original = load("wood-start.png")
+        val hidden = Screenshot(original.width, original.height, original.pixels.copyOf())
+        for (row in 0 until 8) {
+            val top = 580 + (row * 119.7).toInt()
+            for (y in (top until top + 35) + (top + 85 until top + 120)) {
+                for (x in 100 until 980) hidden.pixels[y * hidden.width + x] = original[4, y]
+            }
+        }
+        assertNull(ScreenReader().read(hidden))
+
+        val reader = ScreenReader()
+        val before = reader.read(original)!!
+        val screen = reader.read(hidden)!!
+        assertEquals(before.geometry, screen.geometry)
+        assertEquals(before.tray, screen.tray)
+    }
+
+    @Test
+    fun `knowing where the board was does not make a board out of anything`() {
+        val reader = ScreenReader()
+        reader.read(load("wood-start.png"))!!
+        assertNull(reader.read(Screenshot(1080, 2400, IntArray(1080 * 2400) { 0xFF336699.toInt() })))
+    }
+
+    @Test
+    fun `what is known about the board survives being written down`() {
+        val reader = ScreenReader()
+        reader.read(load("wood-start.png"))!!
+        val known = reader.known!!
+        assertEquals(known, KnownBoard.decode(known.encode()))
+        assertNull(KnownBoard.decode("not a board"))
+        assertNull(KnownBoard.decode(null))
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

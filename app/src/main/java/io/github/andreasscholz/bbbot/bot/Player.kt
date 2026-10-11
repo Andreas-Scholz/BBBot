@@ -41,10 +41,12 @@ class Player(
     private val captureStore: CaptureStore,
     private val solver: Solver,
     private val trace: Trace,
+    private val settings: BotSettings,
     private val onStatus: (PlayStatus) -> Unit,
 ) {
     private var rejection = ""
-    private val reader = ScreenReader(onReject = { rejection = it })
+    private val reader = ScreenReader(onReject = { rejection = it }).apply { known = settings.knownBoard }
+    private var savedBoard = reader.known
 
     /**
      * Plays until the offered pieces do not all fit any more, or until the coroutine is
@@ -84,6 +86,11 @@ class Player(
                     continue
                 }
                 unreadable = 0
+                if (reader.known != savedBoard) {
+                    // Kept for the next run, which may start on a screen that hides the board.
+                    savedBoard = reader.known
+                    settings.knownBoard = savedBoard
+                }
 
                 val move = pending
                 if (move != null) {

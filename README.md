@@ -74,7 +74,9 @@ Screens that do not fit (menus, ads, a line being cleared, pieces still flying i
 reported as "no game", and the bot simply looks again.
 
 The unit tests read real screenshots from `app/src/test/resources/screens`, taken on a
-1080×2400 phone in the wooden, the marble and the pink theme.
+1080×2400 phone in the wooden, the marble, the pink and the purple theme. The themes differ
+in more than colors: the border of the board and the shadows of the pieces have different
+widths, which is why the border is measured in each screenshot.
 
 ## Moving a piece
 

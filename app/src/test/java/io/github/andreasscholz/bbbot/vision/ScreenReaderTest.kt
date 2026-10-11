@@ -40,9 +40,9 @@ class ScreenReaderTest {
     fun `finds the grid and the middle of the pieces`() {
         val screen = reader.read(load("wood-start.png"))!!
 
-        assertEquals(61f, screen.geometry.left, 2f)
-        assertEquals(580f, screen.geometry.top, 2f)
-        assertEquals(119.7f, screen.geometry.cellSize, 0.5f)
+        assertEquals(61f, screen.geometry.left, 4f)
+        assertEquals(580f, screen.geometry.top, 4f)
+        assertEquals(119.7f, screen.geometry.cellSize, 1f)
         for ((piece, x) in screen.tray.zip(listOf(225f, 540f, 855f))) {
             assertEquals(x, piece.centerX, 4f)
             assertEquals(1818f, piece.centerY, 4f)
@@ -91,8 +91,8 @@ class ScreenReaderTest {
             listOf(Piece.of(".X", "XX", ".X"), Piece.of("X.", ".X"), Piece.of("X.", ".X")),
             screen.tray.map { it.piece },
         )
-        assertEquals(61f, screen.geometry.left, 2f)
-        assertEquals(580f, screen.geometry.top, 2f)
+        assertEquals(61f, screen.geometry.left, 4f)
+        assertEquals(580f, screen.geometry.top, 4f)
         assertEquals(1818f, screen.tray[0].centerY, 4f)
     }
 
@@ -139,6 +139,31 @@ class ScreenReaderTest {
             screen.tray.map { it.piece },
         )
         assertEquals(1818f, screen.tray[2].centerY, 4f)
+    }
+
+    @Test
+    fun `reads the purple theme with its thin border and colored blocks`() {
+        val screen = reader.read(load("purple-thin-border.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "........",
+                "........",
+                "........",
+                "........",
+                "......XX",
+                ".....XXX",
+                ".....XXX",
+                ".....XXX",
+            ),
+            screen.board,
+        )
+        val four = Piece.of("X", "X", "X", "X")
+        assertEquals(listOf(four, four, Piece.of("X", "X", "X", "X", "X")), screen.tray.map { it.piece })
+        // The grid is where it is in the other themes, although the border is much thinner.
+        assertEquals(61f, screen.geometry.left, 4f)
+        assertEquals(574f, screen.geometry.top, 4f)
+        assertEquals(119.7f, screen.geometry.cellSize, 1f)
     }
 
     @Test

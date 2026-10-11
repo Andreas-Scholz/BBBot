@@ -75,6 +75,7 @@ class Player(
         // been placed since the score was last seen standing still.
         var lastScore: Long? = null
         var highestScore = -1L
+        var scoreAtMove: Long? = null
         var scoreMoving = false
         var scoreLooks = 0
         val measure = settings.measure
@@ -139,13 +140,17 @@ class Player(
                 if (score != null) highestScore = score
                 val scoreStable = score != null && score == lastScore
                 lastScore = score
-                if (measure && scoreMoving && !scoreStable && scoreLooks < MAX_SCORE_LOOKS) {
+                // Right after a clear the score has not begun to move yet, so standing still is
+                // not enough: it must also have gone up since the piece was placed.
+                val counted = scoreStable && (scoreAtMove == null || score!! > scoreAtMove)
+                if (measure && scoreMoving && !counted && scoreLooks < MAX_SCORE_LOOKS) {
                     scoreLooks++
                     delay(SCORE_MS)
                     continue
                 }
                 scoreMoving = false
                 scoreLooks = 0
+                scoreAtMove = score
 
                 if (comboLength < 0) {
                     // Started in the middle of a game: the symbol behind the score tells whether a

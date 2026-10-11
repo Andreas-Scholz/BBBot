@@ -81,6 +81,15 @@ What a piece earned is the score of the next line minus the score of its own, wh
 stood still. The last line of a run that ended because the pieces did not fit has no piece;
 it holds the final score. The newest thirty traces are kept.
 
+`tools/analyze_traces.py` turns traces into answers: what a clear of one, two or three lines
+is worth, how that grows with the combo, what the first clear after a lost combo earns, and
+which pieces the game hands out how often.
+
+```sh
+adb pull /sdcard/Android/data/io.github.andreasscholz.bbbot/files/captures captures
+python tools/analyze_traces.py captures/trace-*
+```
+
 The score is read by `ScoreReader`: the digits are what has the most common bright color in
 the strip where the score stands, and each is compared to a pattern made from screenshots
 with known scores. It gives no score rather than a doubtful one, and the play loop drops a

@@ -38,6 +38,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Combo rules measured in the game          | done    |
 | Score reading and full traces             | done    |
 | Measured scoring and a look a round ahead | done    |
+| Measured pieces, tray read twice, combo measured in play | done |
 
 ## Using it
 
@@ -184,6 +185,29 @@ traces of real games (see "Traces" below):
 - Two lines at once earn exactly twice a single line, three lines six times. Four and more
   were not seen yet.
 - A block placed earns a point, which reaches the score a second or two late.
+- After a combo was lost, the first single line earned 39 or 77 points, and from there the
+  worth of a line grew again by the same step.
+
+Not measured yet: what four or more lines at once earn, and what emptying the board earns.
+The bot now avoids an empty board, so the second will only show by chance.
+
+### The pieces
+
+The game does not hand out all shapes equally often. Counted in 454 rounds, 1362 pieces: a
+3×3 square is 11.5 % of the pieces, a 2×2 square 9.3 %, the lines of four and five together
+22 %, and single blocks and the lines of two and three did not come up at all
+(`PieceCatalog` has the list).
+
+It also looks at the board. On 364 boards of real games, with 18 blocks on average, every
+round that was offered could be placed completely, where one in forty drawn at random with
+the same frequencies could not have been. It gives no guarantee, though: a game ended on a
+board with 43 blocks, where two random rounds in three would have fit, with a 3×3 square
+that had no place at all. Had the game only made sure that the pieces fit when turned, about
+six of the 364 rounds should not have fit. What fits everything seen so far is that the game
+draws a round again a few times when it cannot be placed, and then gives up; the simulator
+draws three times, which is a guess.
+
+So a crowded board is what ends games, and a board with room does not.
 
 The solver plays by that:
 
@@ -197,45 +221,43 @@ The solver plays by that:
 - A piece that clears something gets a small bonus however many lines it clears, so that two
   pieces clearing a line each are preferred to one clearing two.
 
-The bot counts the combo itself. When it is started in the middle of a game and the symbol is
-behind the score, it takes the combo for a long one.
+The bot counts the combo itself, and checks its count against the game: for one clear in
+forty it waits until the score stands still before and after, and works out from the points
+how long the combo is. That matters when it is started in the middle of a game, where it can
+only see that a combo is running and takes it to be 100 long until the first such check.
 
-### Looking a whole round ahead
-
-The 64 sequences that got the closer look are also tried against 128 rounds of three pieces
-drawn at random, the same rounds for all of them (`RoundSampler`). That counts what the rating
-above only guesses: in how many rounds a line could be cleared, and in how many the pieces
-would not all fit. The share of rounds that cannot clear anything, doubled because being able
-to clear is not the same as wanting to, takes the place of the guessed chance of losing the
-combo. In simulated games, sixteen sequences tried against 32 rounds made games 11 % longer
-and brought 11 % more points at the same setting, and shifted the best setting towards
-defending the combo harder. 64 sequences against 128 rounds added another 7 % and 6 %. On the
-phone a decision took 27 milliseconds on average with the smaller numbers, so there is room.
+New pieces grow into place, and a look in the middle of that reads them wrong: in traces one
+round in twelve began with such a reading, and one of them cost a combo of a thousand,
+because the solver planned a clear with a piece that was not there. A round now only begins
+once two looks in a row show the same three pieces.
 
 ### Strategies
 
 The limit up to which a combo gains in worth is the setting that the three strategies in the
 app differ in. In 384 simulated games each, with up to 1000 rounds of three pieces:
 
-| Strategy | Limit | Rounds survived | Points per round | Points per game | Still playing after 1000 rounds |
-|----------|-------|-----------------|------------------|-----------------|---------------------------------|
-| Safe     | 3×    | 671             | 2952             | 1,979,000       | 40 %                            |
-| Balanced | 11×   | 638             | 5497             | 3,507,000       | 37 %                            |
-| Risky    | 20×   | 563             | 5448             | 3,068,000       | 25 %                            |
+| Strategy | Limit | Rounds survived | Points per round | Points per game | Longest combo |
+|----------|-------|-----------------|------------------|-----------------|---------------|
+| Safe     | 7×    | 354             | 4905             | 1,737,000       | 369           |
+| Balanced | 11×   | 331             | 5898             | 1,949,000       | 384           |
+| Risky    | 18×   | 285             | 5049             | 1,440,000       | 345           |
 
-Balanced is the limit that scored best. Safe plays the longest games for about half the
-points. Risky defends the combo harder still; in these games that ended games sooner without
-scoring more per round, so it is only worth trying if the real game turns out kinder than
-uniformly drawn pieces.
+Balanced is the limit that scored best, safe the one with the longest games. Risky defends
+the combo harder still; here that ended games sooner and scored less, and on the phone a
+bot that took its combo for much longer than it was filled the board until no round fit. At
+limits of 3× and 5× games are no longer than at 7× and score less.
 
-For comparison, at a limit of 7×: 570 rounds and 2,663,000 points without the look a whole
-round ahead, 632 rounds and 2,956,000 points with it. A solver that does not care about
-combos scored 231,000 points under the earlier scoring.
+These games follow what was measured: a point per block; per clear ten points times the
+length of the combo, times 1, 2 or 6 for one, two or three lines; pieces drawn with the
+counted frequencies, and a round drawn again up to three times when it cannot be placed. The
+ten is arbitrary and the three is a guess, so the table ranks the strategies against each
+other. The game the traces come from lasted far longer than these do, more than a thousand
+rounds, so the real game is kinder than this model of it.
 
-These games follow the rules above: a point per block, and per clear ten points times the
-length of the combo, times 1, 2 or 6 for one, two or three lines. The ten is arbitrary, and
-the pieces are drawn uniformly, which the real game does not do. So the table ranks the
-strategies against each other and says little about the points to expect on the phone.
+The weights of the board rating were tuned against this model: with the pieces the game
+really hands out, single empty cells that are enclosed cost much more than they did, and
+edges somewhat more. At the same limit that made games 29 % longer and brought 28 % more
+points.
 
 `StrategyLab` in the unit tests is the tool these numbers come from:
 
@@ -244,6 +266,13 @@ BBBOT_LAB=1 ./gradlew :app:testDebugUnitTest --rerun --tests '*StrategyLab*' -i 
 ```
 
 Also tried there, and left out because it did not help or made things worse:
+
+- trying the best sequences against whole rounds drawn at random and counting in how many a
+  line can be cleared and in how many the pieces do not fit (`RoundSampler`, switched off).
+  Against pieces drawn evenly it made games 11 % longer and brought 11 % more points; against
+  pieces drawn the way the game draws them it made games shorter,
+- more weight on room for the 3×3 square, although it is the most common piece (shorter
+  games),
 
 - a fixed penalty for a board without room for a 3×3 square or a line of five, on top of the
   gradual rating of that room (games got about a tenth shorter),

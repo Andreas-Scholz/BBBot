@@ -19,11 +19,26 @@ data class GameResult(
  * a clear earns ten points times the length of the combo, counted in pieces that cleared
  * something, times 1, 2 or 6 for one, two or three lines at once (see [Scoring]). The ten is
  * arbitrary: what a line is worth per step of the combo was 76 points in the one game it was
- * measured in, and where that number comes from is not known. The real game also does not draw
- * its pieces uniformly. So the results rank settings against each other and say little about
- * the points to expect on the phone.
+ * measured in, and where that number comes from is not known. The pieces are drawn with the
+ * frequencies counted in the real game (see [PieceCatalog]), and a round whose pieces cannot
+ * all be placed is drawn again a few times, which is a guess at what the game does (see
+ * [draws]). So the points to expect on the phone may still differ.
  */
-class Simulator(private val solver: Solver, private val piecesPerRound: Int = 3) {
+class Simulator(
+    private val solver: Solver,
+    private val piecesPerRound: Int = 3,
+    /**
+     * How often a round is drawn before the game settles for one whose pieces cannot all be
+     * placed; 1 means that the game does not look at the board at all.
+     *
+     * What is known: on 364 boards of real games, with 18 blocks on average, every round
+     * offered could be placed, where one in forty drawn at random could not have been. So the
+     * game does look. But it gives no guarantee: a game ended on a board with 43 blocks, where
+     * two rounds in three would have fit, with a 3×3 square that had no place at all. Drawing a
+     * few times and then giving up fits both; three is a guess between them.
+     */
+    private val draws: Int = 3,
+) {
 
     fun play(random: Random, maxRounds: Int): GameResult {
         var board = Board.EMPTY
@@ -33,7 +48,7 @@ class Simulator(private val solver: Solver, private val piecesPerRound: Int = 3)
         var combo = 0
         var longestCombo = 0
         for (round in 0 until maxRounds) {
-            val offered = List(piecesPerRound) { PieceCatalog.all.random(random) }
+            val offered = offer(board, random)
             val plan = solver.solve(board, offered, Combo(length = combo))
             var cleared = false
             for (placement in plan.placements) {
@@ -54,5 +69,15 @@ class Simulator(private val solver: Solver, private val piecesPerRound: Int = 3)
             if (!cleared) combo = 0
         }
         return GameResult(maxRounds, pieces, lines, score, longestCombo)
+    }
+
+    /** A round as the game offers it: drawn again a few times if its pieces cannot all be placed. */
+    private fun offer(board: Board, random: Random): List<Piece> {
+        var offered = List(piecesPerRound) { PieceCatalog.random(random) }
+        repeat(draws - 1) {
+            if (RoundSampler.fits(board, offered)) return offered
+            offered = List(piecesPerRound) { PieceCatalog.random(random) }
+        }
+        return offered
     }
 }

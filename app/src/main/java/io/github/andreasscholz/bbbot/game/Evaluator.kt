@@ -12,11 +12,11 @@ data class Weights(
     /** Per empty cell. */
     val empty: Double = 2.0,
     /** Per edge between a filled and an empty cell, the outer wall counting as filled. */
-    val edge: Double = -2.5,
+    val edge: Double = -3.5,
     /** Per empty cell enclosed on all four sides. */
-    val hole: Double = -7.0,
+    val hole: Double = -20.0,
     /** Per empty cell enclosed on three sides. */
-    val pocket: Double = -2.0,
+    val pocket: Double = -6.0,
     /** Per position where a 3×3 square still fits, up to [fitCap] positions. */
     val squareFit: Double = 6.0,
     /** Per position where a line of five still fits, up to [fitCap] positions per direction. */
@@ -67,9 +67,10 @@ data class Weights(
     val candidates: Int = 64,
     /**
      * How many of the very best ways are tried against whole rounds drawn at random, see
-     * [RoundSampler]; 0 switches that off.
+     * [RoundSampler]; 0 switches that off. It is off: it helped against pieces drawn evenly and
+     * did harm against pieces drawn the way the game was counted to draw them.
      */
-    val roundCandidates: Int = 64,
+    val roundCandidates: Int = 0,
     /** How many rounds each of them is tried against. */
     val roundSamples: Int = 128,
     /**
@@ -151,8 +152,9 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
      */
     fun outlook(bits: Long, comboLength: Int): Outlook {
         val rateBoards = weights.lookahead != 0.0
-        var clearing = 0
-        var fitting = 0
+        // Shares of the shapes, weighted by how often the game hands each out.
+        var clearing = 0.0
+        var fitting = 0.0
         var sum = 0.0
         for (index in SHAPES.indices) {
             val mask = SHAPES[index]
@@ -173,14 +175,14 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
                     }
                 }
             }
-            if (clears) clearing++
+            if (clears) clearing += SHAPE_SHARES[index]
             if (fits && rateBoards) {
-                fitting++
-                sum += best
+                fitting += SHAPE_SHARES[index]
+                sum += best * SHAPE_SHARES[index]
             }
         }
 
-        val next = clearing.toDouble() / SHAPES.size
+        val next = clearing
         // The line closest to full: with four cells or fewer to go a later piece has its usual
         // chance, with all eight to go it has none.
         var fewestEmpty = SIZE
@@ -210,6 +212,7 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
         private val SHAPES = LongArray(PieceCatalog.all.size) { PieceCatalog.all[it].mask }
         private val SHAPE_WIDTHS = IntArray(PieceCatalog.all.size) { PieceCatalog.all[it].width }
         private val SHAPE_HEIGHTS = IntArray(PieceCatalog.all.size) { PieceCatalog.all[it].height }
+        private val SHAPE_SHARES = PieceCatalog.shares
 
         /** The cells that start a horizontal run of [length] cells of [cells]. */
         private fun rightRun(cells: Long, length: Int): Long {

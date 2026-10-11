@@ -24,10 +24,12 @@ class BotSettings(context: Context) {
 
     /**
      * Whether the bot waits after every clear until the score stands still, so that the trace
-     * tells exactly what each piece earned. It makes the bot slower.
+     * tells exactly what each piece earned. It makes the bot much slower. Without it the bot
+     * still waits for the few clears whose worth is not known yet, and for one in forty to
+     * check the length of the combo.
      */
     var measure: Boolean
-        get() = preferences.getBoolean(KEY_MEASURE, true)
+        get() = preferences.getBoolean(KEY_MEASURE, false)
         set(value) = preferences.edit { putBoolean(KEY_MEASURE, value) }
 
     private companion object {

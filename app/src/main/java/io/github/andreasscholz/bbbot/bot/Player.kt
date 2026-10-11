@@ -5,6 +5,8 @@ import android.util.Log
 import io.github.andreasscholz.bbbot.game.Board
 import io.github.andreasscholz.bbbot.game.Combo
 import io.github.andreasscholz.bbbot.game.HeuristicEvaluator
+import io.github.andreasscholz.bbbot.game.Piece
+import io.github.andreasscholz.bbbot.game.Scoring
 import io.github.andreasscholz.bbbot.game.Solver
 import io.github.andreasscholz.bbbot.vision.ComboIcon
 import io.github.andreasscholz.bbbot.vision.GameScreen
@@ -16,6 +18,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** What the bot is doing, for the panel. */
 data class PlayStatus(val state: State, val moves: Int, val lines: Int, val score: Long? = null) {
@@ -66,6 +69,8 @@ class Player(
         var comboLength = -1
         var clearedThisRound = false
         var lastTray = 0
+        // The pieces of a round that is beginning, as the look before showed them.
+        var arriving: List<Piece>? = null
         // The board on which the pieces did not fit at the last look.
         var deadEnd: Board? = null
         var previousAsExpected = true
@@ -79,6 +84,12 @@ class Player(
         var scoreMoving = false
         var scoreLooks = 0
         val measure = settings.measure
+        // Whether the score is waited for after the piece placed last, and the clear that is
+        // being measured to find out how long the combo really is.
+        var exact = false
+        var calibration: Calibration? = null
+        var clearsSinceCalibration = CALIBRATE_EVERY
+        var settleLooks = 0
         try {
             while (true) {
                 val shot = screenCapture.capture()
@@ -130,6 +141,8 @@ class Player(
                     if (screen.board == move.expected) lines += move.lines
                     previousAsExpected = screen.board == move.expected
                     if (move.lines > 0) scoreMoving = true
+                    exact = move.exact
+                    if (screen.board != move.expected) calibration = null
                     pending = null
                 }
 
@@ -143,18 +156,48 @@ class Player(
                 // Right after a clear the score has not begun to move yet, so standing still is
                 // not enough: it must also have gone up since the piece was placed.
                 val counted = scoreStable && (scoreAtMove == null || score!! > scoreAtMove)
-                if (measure && scoreMoving && !counted && scoreLooks < MAX_SCORE_LOOKS) {
+                if ((measure || exact) && scoreMoving && !counted && scoreLooks < MAX_SCORE_LOOKS) {
                     scoreLooks++
                     delay(SCORE_MS)
                     continue
                 }
+                calibration?.let { measured ->
+                    // What a clear earns tells how long the combo is: a line is worth a fixed step
+                    // for every piece that cleared something. The bot's own count is wrong when it
+                    // was started in the middle of a combo, and this sets it right.
+                    if (scoreMoving && counted) {
+                        val earned = score!! - measured.scoreBefore - measured.cells
+                        val length = (earned / (Scoring.STEP * Scoring.worth(measured.lines))).roundToInt()
+                        if (length >= 1) {
+                            Log.i(TAG, "A clear of ${measured.lines} earned $earned: the combo is $length long, counted $comboLength")
+                            comboLength = length
+                        }
+                    }
+                    calibration = null
+                }
+                exact = false
                 scoreMoving = false
                 scoreLooks = 0
                 scoreAtMove = score
 
+                // New pieces grow into place, and a look in the middle of that reads them wrong: in
+                // traces one round in thirteen began with such a reading, and one of them cost a
+                // combo of a thousand. So a round only begins once two looks show the same pieces.
+                if (screen.tray.size == HeuristicEvaluator.ROUND && lastTray != HeuristicEvaluator.ROUND) {
+                    val pieces = screen.tray.map { it.piece }
+                    if (pieces != arriving) {
+                        arriving = pieces
+                        delay(ARRIVING_MS)
+                        continue
+                    }
+                }
+                arriving = null
+
                 if (comboLength < 0) {
                     // Started in the middle of a game: the symbol behind the score tells whether a
-                    // combo is running, but not for how long. It is taken to be a long one.
+                    // combo is running, but not for how long. It is taken to be of middling length:
+                    // taken for a very long one when it was not, it once had the board filled up
+                    // to defend it until no round fit any more.
                     comboLength = if (ComboIcon.share(shot) > COMBO_CLEARLY_RUNNING) UNKNOWN_COMBO else 0
                     clearedThisRound = comboLength > 0
                 }
@@ -207,8 +250,24 @@ class Player(
                 deadEnd = null
                 val placement = plan.placements.first()
 
-                onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score))
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
+                // Now and then a clear is measured to check the length of the combo. That needs
+                // a score that stands still before the piece as well as after it.
+                var calibrate = false
+                if (result.linesCleared > 0 && clearsSinceCalibration >= CALIBRATE_EVERY && score != null) {
+                    if (!scoreStable && settleLooks < MAX_SCORE_LOOKS) {
+                        settleLooks++
+                        delay(SCORE_MS)
+                        continue
+                    }
+                    calibrate = scoreStable
+                }
+                settleLooks = 0
+                // What four lines at once or an emptied board earn is not known yet, so those are
+                // always waited for; the trace then tells.
+                val waitForScore = measure || calibrate || result.linesCleared >= 4 || result.board == Board.EMPTY
+
+                onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score))
                 trace.add(
                     shot,
                     TraceStep(
@@ -236,7 +295,14 @@ class Player(
                         expected = result.board,
                         lines = result.linesCleared,
                         cells = placement.piece.cellCount,
+                        exact = waitForScore,
                     )
+                    if (calibrate) {
+                        calibration = Calibration(score!!, placement.piece.cellCount, result.linesCleared)
+                        clearsSinceCalibration = 0
+                    } else if (result.linesCleared > 0) {
+                        clearsSinceCalibration++
+                    }
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
                     delay(RETRY_MS)
@@ -274,13 +340,21 @@ class Player(
         val lines: Int,
         /** The number of blocks of the piece. */
         val cells: Int,
+        /** Whether the next piece waits until the score has taken in what this one earned. */
+        val exact: Boolean,
         /** The board of the latest look that did not show the expected one. */
         val seen: Board? = null,
         val looks: Int = 0,
     )
 
+    /** A clear that is being measured: the score before its piece, and what the piece is and does. */
+    private class Calibration(val scoreBefore: Long, val cells: Int, val lines: Int)
+
     private companion object {
         const val TAG = "BBBot"
+
+        /** After how many pieces that cleared something the length of the combo is measured again. */
+        const val CALIBRATE_EVERY = 40
 
         const val PRESS_MS = 60L
         const val DRAG_BASE_MS = 120L
@@ -296,9 +370,10 @@ class Player(
         const val COMBO_CLEARLY_RUNNING = 0.1f
 
         /** The length taken for a combo that was running before the bot started. */
-        const val UNKNOWN_COMBO = 1000
+        const val UNKNOWN_COMBO = 100
 
         const val MAX_LOOKS = 6
+        const val ARRIVING_MS = 50L
 
         // Waiting for the score to stand still after a clear: how often to look, and how long between.
         const val MAX_SCORE_STEP = 2_000_000L

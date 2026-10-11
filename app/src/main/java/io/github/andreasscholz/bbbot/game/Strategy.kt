@@ -12,15 +12,16 @@ package io.github.andreasscholz.bbbot.game
  * strategies and say little about the points to expect on the phone.
  */
 enum class Strategy(val weights: Weights) {
-    /** Lets a combo go rather than spoil the board. The longest games, the fewest points. */
-    SAFE(Weights(comboCap = 3.0)),
+    /** Lets a combo go sooner to keep the board open. The longest games in simulation. */
+    SAFE(Weights(comboCap = 7.0)),
 
     /** The setting that scored best in simulated games. */
     BALANCED(Weights(comboCap = 11.0)),
 
     /**
      * Defends a long combo at a higher cost to the board. In simulated games that ended games
-     * sooner without scoring more per round; it is there for a game that is kinder than they are.
+     * sooner and scored less; on the phone it once filled the board until no round fit. It is
+     * there for a game that is kinder than the simulated ones.
      */
-    RISKY(Weights(comboCap = 20.0)),
+    RISKY(Weights(comboCap = 18.0)),
 }

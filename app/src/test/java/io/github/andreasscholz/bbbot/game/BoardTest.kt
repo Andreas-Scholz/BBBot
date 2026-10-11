@@ -25,19 +25,23 @@ class BoardTest {
     }
 
     @Test
-    fun `catalog holds every orientation once`() {
+    fun `catalog holds every shape once, with shares that add up`() {
         val catalog = PieceCatalog.all
         assertEquals(catalog.size, catalog.distinct().size)
+        assertEquals(catalog.size, PieceCatalog.shares.size)
+        assertEquals(1.0, PieceCatalog.shares.sum(), 1e-9)
         assertTrue(Piece.of("XXXXX") in catalog)
         assertTrue(Piece.of("X", "X", "X", "X", "X") in catalog)
-        // The L tetromino has four rotations and their mirror images.
-        assertEquals(8, catalog.count { it.cellCount == 4 && maxOf(it.width, it.height) == 3 && it !in tAndS })
     }
 
-    private val tAndS = listOf(
-        Piece.of("XXX", ".X."), Piece.of(".X.", "XXX"), Piece.of("X.", "XX", "X."), Piece.of(".X", "XX", ".X"),
-        Piece.of(".XX", "XX."), Piece.of("XX.", ".XX"), Piece.of("X.", "XX", ".X"), Piece.of(".X", "XX", "X."),
-    )
+    @Test
+    fun `pieces are drawn as often as the game hands them out`() {
+        val random = kotlin.random.Random(1)
+        val draws = 20_000
+        val squares = (1..draws).count { PieceCatalog.random(random) == Piece.of("XXX", "XXX", "XXX") }
+        // The 3×3 square is one piece in eight.
+        assertEquals(0.118, squares / draws.toDouble(), 0.01)
+    }
 
     @Test
     fun `piece fits only on free cells inside the board`() {

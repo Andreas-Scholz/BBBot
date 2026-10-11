@@ -2,11 +2,15 @@ package io.github.andreasscholz.bbbot.game
 
 import kotlin.random.Random
 
-/** What a board has to expect from the next round: the chances that it can clear a line and that its pieces fit. */
+/**
+ * What a board has to expect from the next round. [fit] is the share of rounds drawn at random
+ * whose pieces can all be placed. The game mostly offers such rounds (see the README), so
+ * [clear], the chance that a round can clear a line, is counted among those.
+ */
 class RoundChances(val clear: Double, val fit: Double)
 
 /**
- * Tries a board against rounds of three pieces drawn at random, to count what the solver
+ * Tries a board against rounds of three pieces, drawn the way the game hands them out, to count what the solver
  * otherwise has to guess: how often the next round could clear a line, which keeps the combo,
  * and how often its pieces would not all fit, which ends the game.
  *
@@ -21,7 +25,7 @@ internal class RoundSampler(samples: Int, seed: Long) {
     private val heights = IntArray(shapes.size) { shapes[it].height }
 
     /** The rounds, three indices into the shapes each. */
-    private val rounds = Random(seed).let { random -> IntArray(samples * ROUND) { random.nextInt(shapes.size) } }
+    private val rounds = Random(seed).let { random -> IntArray(samples * ROUND) { PieceCatalog.randomIndex(random) } }
     private val round = IntArray(ROUND)
     private var budget = 0
 
@@ -31,12 +35,12 @@ internal class RoundSampler(samples: Int, seed: Long) {
         val count = rounds.size / ROUND
         for (sample in 0 until count) {
             for (i in 0 until ROUND) round[i] = rounds[sample * ROUND + i]
-            // A round that clears something is one whose pieces can be placed, at least up to there.
-            if (canClear(bits)) clear++
             budget = FIT_BUDGET
-            if (fits(bits, remaining = (1 shl ROUND) - 1)) fit++
+            if (!fits(bits, remaining = (1 shl ROUND) - 1)) continue
+            fit++
+            if (canClear(bits)) clear++
         }
-        return RoundChances(clear.toDouble() / count, fit.toDouble() / count)
+        return RoundChances(if (fit == 0) 0.0 else clear.toDouble() / fit, fit.toDouble() / count)
     }
 
     /**
@@ -93,8 +97,22 @@ internal class RoundSampler(samples: Int, seed: Long) {
         return false
     }
 
-    private companion object {
-        const val ROUND = HeuristicEvaluator.ROUND
-        const val FIT_BUDGET = 20_000
+    companion object {
+        private const val ROUND = HeuristicEvaluator.ROUND
+        private const val FIT_BUDGET = 20_000
+
+        /** Whether [pieces] can all be placed on [board], in some order, clearing lines on the way. */
+        fun fits(board: Board, pieces: List<Piece>): Boolean {
+            if (pieces.isEmpty()) return true
+            for ((index, piece) in pieces.withIndex()) {
+                val rest = pieces.filterIndexed { other, _ -> other != index }
+                for (row in 0..Board.SIZE - piece.height) {
+                    for (col in 0..Board.SIZE - piece.width) {
+                        if (board.fits(piece, row, col) && fits(board.place(piece, row, col).board, rest)) return true
+                    }
+                }
+            }
+            return false
+        }
     }
 }

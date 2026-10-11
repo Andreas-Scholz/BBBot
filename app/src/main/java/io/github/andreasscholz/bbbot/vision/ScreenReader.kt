@@ -210,9 +210,7 @@ class ScreenReader {
             val cells = mutableListOf<Pair<Int, Int>>()
             for (row in 0 until rows) {
                 for (col in 0 until cols) {
-                    val x = (box.left + (col + 0.5f) * cell).toInt()
-                    val y = (box.top + (row + 0.5f) * cell).toInt()
-                    if (scene.isForeground(x, y)) cells += row to col
+                    if (holdsBlock(scene, box.left + col * cell, box.top + row * cell, cell)) cells += row to col
                 }
             }
             val piece = Piece.ofCells(cells.ifEmpty { return null })
@@ -221,6 +219,24 @@ class ScreenReader {
             pieces += TrayPiece(slot, piece, box.left + cols * cell / 2, box.top + rows * cell / 2)
         }
         return pieces
+    }
+
+    /**
+     * Whether the cell of a piece with its top left corner at [left], [top] holds a block. A
+     * single pixel in the middle is not enough to tell: a block of a patterned theme has spots
+     * in the color of the background. The outer quarter of the cell is left out because the
+     * block next to it throws its shadow there.
+     */
+    private fun holdsBlock(scene: Scene, left: Float, top: Float, cell: Float): Boolean {
+        var hits = 0
+        for (row in 0 until CELL_SAMPLES) {
+            for (col in 0 until CELL_SAMPLES) {
+                val x = left + cell * (0.25f + 0.5f * col / (CELL_SAMPLES - 1))
+                val y = top + cell * (0.25f + 0.5f * row / (CELL_SAMPLES - 1))
+                if (scene.isForeground(x.toInt(), y.toInt())) hits++
+            }
+        }
+        return hits >= CELL_SAMPLES * CELL_SAMPLES * MIN_CELL_FILL
     }
 
     /**
@@ -301,6 +317,12 @@ class ScreenReader {
 
         /** How far the box around a piece may be from whole cells; shadows make it larger. */
         const val SIZE_TOLERANCE = 0.4f
+        /** A cell of a piece is looked at in this many places per direction. */
+        const val CELL_SAMPLES = 5
+
+        /** The part of those places that must be foreground for the cell to hold a block. */
+        const val MIN_CELL_FILL = 0.3f
+
         /** The foreground a row or column of pixels needs to belong to a piece, in cells of the piece. */
         const val MIN_LINE = 0.4f
 

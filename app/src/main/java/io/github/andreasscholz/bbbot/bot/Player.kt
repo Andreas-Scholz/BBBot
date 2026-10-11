@@ -35,11 +35,11 @@ class Player(
     private val screenCapture: ScreenCapture,
     private val finger: Finger,
     private val captureStore: CaptureStore,
+    private val solver: Solver,
     private val onStatus: (PlayStatus) -> Unit,
 ) {
     private var rejection = ""
     private val reader = ScreenReader(onReject = { rejection = it })
-    private val solver = Solver()
 
     /**
      * Plays until the offered pieces do not all fit any more, or until the coroutine is

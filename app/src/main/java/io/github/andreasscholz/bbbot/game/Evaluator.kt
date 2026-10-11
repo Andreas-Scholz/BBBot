@@ -5,8 +5,8 @@ import io.github.andreasscholz.bbbot.game.Board.Companion.ROW_0
 import io.github.andreasscholz.bbbot.game.Board.Companion.SIZE
 
 /**
- * How much each property of a board counts. The defaults were found by letting the solver play
- * simulated games (see `SimulatorTest`).
+ * How much each property of a board counts. The sets in use are the ones of [Strategy]; they
+ * were found by letting the solver play simulated games (see `StrategyLab` in the tests).
  */
 data class Weights(
     /** Per empty cell. */
@@ -18,7 +18,7 @@ data class Weights(
     /** Per empty cell enclosed on three sides. */
     val pocket: Double = -2.0,
     /** Per position where a 3×3 square still fits, up to [fitCap] positions. */
-    val squareFit: Double = 4.0,
+    val squareFit: Double = 6.0,
     /** Per position where a line of five still fits, up to [fitCap] positions per direction. */
     val lineFit: Double = 0.5,
     val fitCap: Int = 6,
@@ -26,18 +26,28 @@ data class Weights(
     val line: Double = 1.0,
     /** Extra per additional line cleared by the same piece. */
     val multiLine: Double = 1.0,
-    /** For letting the combo end: the third piece in a row that clears nothing. */
-    val comboBreak: Double = -80.0,
-    /** Per piece placed since the last clear when the offered pieces are used up. */
-    val comboGap: Double = -10.0,
     /**
-     * For the share of all shapes that could clear a line with their next placement. It counts
-     * double after one piece without a clear and triple after two, as the combo runs out.
+     * What a running combo is worth, as a loss when it ends. This is the one weight that sets
+     * how much risk the bot takes: the more a combo counts, the more of the board's good shape
+     * is given up to keep clearing lines.
      */
-    val clearChance: Double = 10.0,
+    val comboBreak: Double = -50.0,
+    /**
+     * The chance taken for a piece after the next one to clear a line. What the next piece can
+     * do is read off the board; the pieces after it can be set up for, so they are given at
+     * least this chance.
+     */
+    val laterClear: Double = 0.3,
+    /**
+     * How much of a board's rating is replaced by the rating of the boards one more piece
+     * later, averaged over all shapes placed as well as possible; between 0 and 1.
+     */
+    val lookahead: Double = 1.0,
+    /** How many of the best ways to place the offered pieces get that look at their future. */
+    val candidates: Int = 64,
 )
 
-class HeuristicEvaluator(private val weights: Weights = Weights()) {
+class HeuristicEvaluator(val weights: Weights = Weights()) {
 
     /** Rates a board given as [Board.bits]; higher is better for the player. */
     fun evaluate(bits: Long): Double {
@@ -78,32 +88,57 @@ class HeuristicEvaluator(private val weights: Weights = Weights()) {
     fun comboReward(gap: Int): Double = if (gap == COMBO_LENGTH) weights.comboBreak else 0.0
 
     /**
-     * Rates how well a board that ends a round keeps the combo going: a clear is needed within
-     * the next `COMBO_LENGTH - gap` pieces, and the fewer are left, the more it matters that
-     * many shapes can clear something right away. Much slower than [evaluate].
+     * Rates what a board that ends a round has to expect from the next piece, on top of
+     * [evaluate]. It tries every shape in every position, which is much too slow to do for
+     * every board the solver comes across.
+     *
+     * The combo: it ends unless one of the next `COMBO_LENGTH - gap` pieces clears a line. The
+     * share of shapes that could do so right away is the chance of the next piece, the pieces
+     * after it get at least [Weights.laterClear], and the expected loss is the worth of the
+     * combo times the chance of missing every time.
+     *
+     * The future: how good the board still is after the next piece, on average over all shapes.
      */
-    fun comboOutlook(bits: Long, gap: Int): Double {
-        if (gap >= COMBO_LENGTH) return 0.0
-        return weights.comboGap * gap + weights.clearChance * (1 + gap) * clearChance(bits)
-    }
-
-    /** The share of all shapes that can complete a row or column of the board with one placement. */
-    private fun clearChance(bits: Long): Double {
+    fun outlook(bits: Long, gap: Int): Double {
+        val rateBoards = weights.lookahead != 0.0
         var clearing = 0
-        for (piece in PieceCatalog.all) {
-            if (canClear(bits, piece)) clearing++
-        }
-        return clearing.toDouble() / PieceCatalog.all.size
-    }
-
-    private fun canClear(bits: Long, piece: Piece): Boolean {
-        for (row in 0..SIZE - piece.height) {
-            for (col in 0..SIZE - piece.width) {
-                val cells = piece.maskAt(row, col)
-                if (bits and cells == 0L && Board.fullLines(bits or cells) != 0L) return true
+        var fitting = 0
+        var sum = 0.0
+        for (index in SHAPES.indices) {
+            val mask = SHAPES[index]
+            var fits = false
+            var clears = false
+            var best = Double.NEGATIVE_INFINITY
+            for (row in 0..SIZE - SHAPE_HEIGHTS[index]) {
+                for (col in 0..SIZE - SHAPE_WIDTHS[index]) {
+                    val cells = mask shl (row * SIZE + col)
+                    if (bits and cells != 0L) continue
+                    fits = true
+                    val filled = bits or cells
+                    val full = Board.fullLines(filled)
+                    if (full != 0L) clears = true
+                    if (rateBoards) {
+                        val lines = if (full == 0L) 0 else Board.countLines(filled)
+                        best = maxOf(best, evaluate(filled and full.inv()) + lineReward(lines))
+                    }
+                }
+            }
+            if (clears) clearing++
+            if (fits && rateBoards) {
+                fitting++
+                sum += best
             }
         }
-        return false
+
+        var value = 0.0
+        if (gap < COMBO_LENGTH) {
+            val next = clearing.toDouble() / SHAPES.size
+            var miss = 1 - next
+            repeat(COMBO_LENGTH - gap - 1) { miss *= 1 - maxOf(next, weights.laterClear) }
+            value += weights.comboBreak * miss
+        }
+        if (fitting > 0) value += weights.lookahead * (sum / fitting - evaluate(bits))
+        return value
     }
 
     companion object {
@@ -112,6 +147,11 @@ class HeuristicEvaluator(private val weights: Weights = Weights()) {
 
         private const val ROW_7 = ROW_0 shl (SIZE * (SIZE - 1))
         private const val COL_7 = COL_0 shl (SIZE - 1)
+
+        // The catalog as plain arrays, for the inner loop of [outlook].
+        private val SHAPES = LongArray(PieceCatalog.all.size) { PieceCatalog.all[it].mask }
+        private val SHAPE_WIDTHS = IntArray(PieceCatalog.all.size) { PieceCatalog.all[it].width }
+        private val SHAPE_HEIGHTS = IntArray(PieceCatalog.all.size) { PieceCatalog.all[it].height }
 
         /** The cells that start a horizontal run of [length] cells of [cells]. */
         private fun rightRun(cells: Long, length: Int): Long {

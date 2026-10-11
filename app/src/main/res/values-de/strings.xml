@@ -10,6 +10,14 @@
     <string name="main_game_text">Über Block Blast erscheint eine kleine BBBot-Leiste.</string>
     <string name="main_open_game">Block Blast öffnen</string>
     <string name="main_game_missing">Block Blast ist nicht installiert.</string>
+    <string name="main_strategy_title">3. Spielweise wählen</string>
+    <string name="main_strategy_text">Die Wahl gilt ab dem nächsten Start des Bots.</string>
+    <string name="strategy_safe">Sicher</string>
+    <string name="strategy_safe_text">Hält das Feld offen und gibt eine Combo früh auf. Lange Partien, weniger Punkte pro Stein.</string>
+    <string name="strategy_balanced">Ausgewogen</string>
+    <string name="strategy_balanced_text">Ein Mittelweg zwischen langen Partien und langen Combos.</string>
+    <string name="strategy_risky">Riskant</string>
+    <string name="strategy_risky_text">Hält Combos auf Kosten des Feldes. Die meisten Punkte pro Stein, aber die Partien enden früher.</string>
 
     <string name="service_description">Lässt BBBot Block Blast spielen: Der Dienst macht Screenshots, solange das Spiel im Vordergrund ist, und zieht die Steine aufs Spielfeld. BBBot liest keine Inhalte anderer Apps und sendet nichts irgendwohin.</string>
 
@@ -17,7 +25,7 @@
     <string name="overlay_start">Spielen starten</string>
     <string name="overlay_stop">Spielen stoppen</string>
     <string name="overlay_stopped">Gestoppt · Züge: %1$d · Reihen: %2$d</string>
-    <string name="overlay_playing">Spielt · Züge: %1$d · Reihen: %2$d</string>
+    <string name="overlay_playing">%3$s · Züge: %1$d · Reihen: %2$d</string>
     <string name="overlay_no_game">Kein Spiel zu sehen · Züge: %1$d</string>
     <string name="overlay_no_move">Kein Platz für alle Steine · Züge: %1$d · Screenshot gespeichert</string>
     <string name="overlay_error">Durch einen Fehler gestoppt</string>

@@ -11,6 +11,14 @@
     <string name="main_game_text">A small BBBot panel appears on top of Block Blast.</string>
     <string name="main_open_game">Open Block Blast</string>
     <string name="main_game_missing">Block Blast is not installed.</string>
+    <string name="main_strategy_title">3. Choose how to play</string>
+    <string name="main_strategy_text">The choice applies the next time the bot is started.</string>
+    <string name="strategy_safe">Safe</string>
+    <string name="strategy_safe_text">Keeps the board open and gives up a combo early. Long games, fewer points per piece.</string>
+    <string name="strategy_balanced">Balanced</string>
+    <string name="strategy_balanced_text">A middle course between long games and long combos.</string>
+    <string name="strategy_risky">Risky</string>
+    <string name="strategy_risky_text">Holds on to combos at the cost of the board. Most points per piece, but games end sooner.</string>
 
     <string name="service_description">Lets BBBot play Block Blast: it takes screenshots while the game is in front and drags the pieces onto the board. BBBot does not read the contents of other apps and sends nothing anywhere.</string>
 
@@ -18,7 +26,7 @@
     <string name="overlay_start">Start playing</string>
     <string name="overlay_stop">Stop playing</string>
     <string name="overlay_stopped">Stopped · Moves: %1$d · Lines: %2$d</string>
-    <string name="overlay_playing">Playing · Moves: %1$d · Lines: %2$d</string>
+    <string name="overlay_playing">%3$s · Moves: %1$d · Lines: %2$d</string>
     <string name="overlay_no_game">No game in sight · Moves: %1$d</string>
     <string name="overlay_no_move">No room for all pieces · Moves: %1$d · Screenshot saved</string>
     <string name="overlay_error">Stopped by an error</string>

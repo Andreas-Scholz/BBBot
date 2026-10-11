@@ -30,7 +30,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Project setup                             | done    |
 | Game model and solver                     | done    |
 | Accessibility service, overlay, gestures  | done    |
-| Board and piece recognition               | planned |
+| Board and piece recognition               | done    |
 | Play loop                                 | planned |
 
 ## Using it
@@ -49,6 +49,26 @@ what the recognition is developed and tested against:
 ```sh
 adb pull /sdcard/Android/data/io.github.andreasscholz.bbbot/files/captures
 ```
+
+## Recognition
+
+The game changes its colors with its themes, so `ScreenReader` knows no colors. It assumes
+only this much:
+
+- the background reaches the left edge of the screen; the color there is the background of
+  that row of pixels,
+- the board is the tallest band that is not background almost all the way across, and it is
+  square,
+- the darkest cell of the grid is an empty one, and every cell that looks different from it
+  holds a block,
+- the offered pieces lie below the board, one in each third of the screen, drawn at a fixed
+  fraction of the board's scale.
+
+Screens that do not fit (menus, ads, a line being cleared, pieces still flying in) are
+reported as "no game", and the bot simply looks again.
+
+The unit tests read real screenshots from `app/src/test/resources/screens`. They were taken
+on a 1080×2400 phone with the wooden theme, the only one seen so far.
 
 ## The solver
 

@@ -112,10 +112,11 @@ class SolverTest {
         val scattered = Board.parse(*Array(7) { "........" }, "X.X.X.X.")
 
         for (length in listOf(0, 5, 50)) {
-            assertTrue(evaluator.outlook(nearlyDone.bits, length) > evaluator.outlook(scattered.bits, length))
+            assertTrue(evaluator.outlook(nearlyDone.bits, length).comboRisk > evaluator.outlook(scattered.bits, length).comboRisk)
         }
         // The longer the combo, the more the difference counts.
-        fun advantage(length: Int) = evaluator.outlook(nearlyDone.bits, length) - evaluator.outlook(scattered.bits, length)
+        fun advantage(length: Int) =
+            evaluator.outlook(nearlyDone.bits, length).comboRisk - evaluator.outlook(scattered.bits, length).comboRisk
         assertTrue(advantage(50) > advantage(0))
     }
 

@@ -37,6 +37,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Lookahead and selectable strategies       | done    |
 | Combo rules measured in the game          | done    |
 | Score reading and full traces             | done    |
+| Measured scoring and a look a round ahead | done    |
 
 ## Using it
 
@@ -199,21 +200,35 @@ The solver plays by that:
 The bot counts the combo itself. When it is started in the middle of a game and the symbol is
 behind the score, it takes the combo for a long one.
 
+### Looking a whole round ahead
+
+The sixteen sequences that come out best are tried against 32 rounds of three pieces drawn
+at random, the same rounds for all of them (`RoundSampler`). That counts what the rating
+above only guesses: in how many rounds a line could be cleared, and in how many the pieces
+would not all fit. The share of rounds that cannot clear anything, doubled because being able
+to clear is not the same as wanting to, takes the place of the guessed chance of losing the
+combo. In simulated games this made games 11 % longer and brought 11 % more points at the
+same setting, and it shifted the best setting towards defending the combo harder.
+
 ### Strategies
 
-The limit up to which a combo gains in worth is the setting that trades safety for points,
-and it is what the three strategies in the app differ in. In 384 simulated games each, with
-up to 1000 rounds of three pieces:
+The limit up to which a combo gains in worth is the setting that the three strategies in the
+app differ in. In 384 simulated games each, with up to 1000 rounds of three pieces:
 
-| Strategy | Limit | Rounds survived | Points per round | Points per game | One game in ten ends before round |
-|----------|-------|-----------------|------------------|-----------------|-----------------------------------|
-| Safe     | 4×    | 609             | 2762             | 1,681,000       | 108                               |
-| Balanced | 7×    | 538             | 4727             | 2,541,000       | 103                               |
-| Risky    | 11×   | 519             | 5582             | 2,896,000       | 101                               |
+| Strategy | Limit | Rounds survived | Points per round | Points per game | Still playing after 1000 rounds |
+|----------|-------|-----------------|------------------|-----------------|---------------------------------|
+| Safe     | 3×    | 671             | 2952             | 1,979,000       | 40 %                            |
+| Balanced | 11×   | 638             | 5497             | 3,507,000       | 37 %                            |
+| Risky    | 20×   | 563             | 5448             | 3,068,000       | 25 %                            |
 
-For comparison: a combo of constant worth reaches 577 rounds and 2,061,000 points, and a
-solver that does not care about combos 591 rounds and 231,000 points. Limits above 11× lose
-both rounds and points.
+Balanced is the limit that scored best. Safe plays the longest games for about half the
+points. Risky defends the combo harder still; in these games that ended games sooner without
+scoring more per round, so it is only worth trying if the real game turns out kinder than
+uniformly drawn pieces.
+
+For comparison, at a limit of 7×: 570 rounds and 2,663,000 points without the look a whole
+round ahead, 632 rounds and 2,956,000 points with it. A solver that does not care about
+combos scored 231,000 points under the earlier scoring.
 
 These games follow the rules above: a point per block, and per clear ten points times the
 length of the combo, times 1, 2 or 6 for one, two or three lines. The ten is arbitrary, and

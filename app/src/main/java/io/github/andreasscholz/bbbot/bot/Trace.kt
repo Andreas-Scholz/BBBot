@@ -43,6 +43,8 @@ class TraceStep(
     /** The score on the screen, if it could be read, and whether the look before showed the same. */
     val score: Long?,
     val scoreStable: Boolean,
+    /** How long the solver took to decide, in milliseconds. */
+    val solveMillis: Long,
 )
 
 /**
@@ -89,6 +91,7 @@ class Trace(context: Context) {
             "%.3f".format(Locale.ROOT, ComboIcon.share(shot)),
             step.score ?: "",
             step.scoreStable,
+            step.solveMillis,
             picture,
         )
         moves.appendText(fields.joinToString(",") + "\n")
@@ -115,7 +118,7 @@ class Trace(context: Context) {
 
     private companion object {
         const val HEADER = "move,seconds,round,board,offered,slot,piece,row,col,cells,lines,all_clear,clear_possible," +
-            "combo_length,cleared_this_round,previous_as_expected,icon,score,score_stable,picture"
+            "combo_length,cleared_this_round,previous_as_expected,icon,score,score_stable,solve_ms,picture"
         const val MAX_TRACES = 30
         const val PICTURE_TOP = 0.10f
         const val PICTURE_BOTTOM = 0.235f

@@ -40,7 +40,7 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
     /** The offered [pieces] are what is left of the current round. */
     fun solve(board: Board, pieces: List<Piece>, combo: Combo = Combo()): Plan {
         require(pieces.size <= MAX_PIECES) { "At most $MAX_PIECES pieces" }
-        val search = Search(pieces, combo)
+        val search = Search(pieces, combo, board.bits)
         search.run(board.bits, remaining = (1 shl pieces.size) - 1, depth = 0, reward = 0.0, lines = 0, clears = 0)
         return search.result(board)
     }
@@ -48,7 +48,7 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
     /** [comboLength] is the length of the combo once the sequence is played. */
     private class Candidate(val value: Double, val path: IntArray, val bits: Long, val lines: Int, val comboLength: Int)
 
-    private inner class Search(private val pieces: List<Piece>, private val combo: Combo) {
+    private inner class Search(private val pieces: List<Piece>, private val combo: Combo, private val startBits: Long) {
         /** Whether any placement that was tried cleared a line. */
         private var clearPossible = false
 
@@ -128,8 +128,32 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
             if (candidates.size > limit) candidates.removeAt(candidates.lastIndex)
         }
 
+        /**
+         * The candidate to play: the one with the best outlook, or, when whole rounds are tried,
+         * the one of the few with the best outlook that does best against those.
+         */
+        private fun best(): Candidate? {
+            val weights = evaluator.weights
+            val rated = candidates.map { it to evaluator.outlook(it.bits, it.comboLength) }
+                .sortedByDescending { (candidate, outlook) -> candidate.value + outlook.total }
+            if (weights.roundCandidates <= 0) return rated.firstOrNull()?.first
+            // The rounds depend on nothing but the board the decision starts from, so the same
+            // decision is always made the same way.
+            val sampler = RoundSampler(weights.roundSamples, seed = startBits)
+            return rated.take(weights.roundCandidates)
+                .maxByOrNull { (candidate, outlook) ->
+                    if (candidate.path.size < pieces.size) {
+                        // A candidate that does not place all pieces has lost already.
+                        candidate.value + outlook.total
+                    } else {
+                        candidate.value + outlook.future +
+                            evaluator.roundOutlook(sampler.chances(candidate.bits), candidate.comboLength)
+                    }
+                }?.first
+        }
+
         fun result(start: Board): Plan {
-            val best = candidates.maxByOrNull { it.value + evaluator.outlook(it.bits, it.comboLength) }
+            val best = best()
                 ?: return Plan(emptyList(), start, linesCleared = 0, complete = pieces.isEmpty(), clearPossible = false)
             var board = start
             val placements = best.path.map { step ->

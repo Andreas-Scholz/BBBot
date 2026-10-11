@@ -86,11 +86,13 @@ class Solver(private val evaluator: HeuristicEvaluator = HeuristicEvaluator()) {
                         val cleared = if (full == 0L) 0 else Board.countLines(filled)
                         if (cleared > 0) clearPossible = true
                         path[depth] = index * CELLS + row * Board.SIZE + col
+                        val left = filled and full.inv()
+                        val emptied = if (left == 0L) evaluator.weights.emptiedBoard else 0.0
                         run(
-                            bits = filled and full.inv(),
+                            bits = left,
                             remaining = remaining and (1 shl index).inv(),
                             depth = depth + 1,
-                            reward = reward + evaluator.lineReward(cleared),
+                            reward = reward + evaluator.lineReward(cleared) + emptied,
                             lines = lines + cleared,
                             clears = if (cleared > 0) clears + 1 else clears,
                         )

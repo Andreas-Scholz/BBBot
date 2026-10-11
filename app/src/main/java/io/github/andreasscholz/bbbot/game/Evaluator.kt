@@ -53,12 +53,6 @@ data class Weights(
      */
     val laterClear: Double = 0.3,
     /**
-     * Whether [laterClear] shrinks on a board that is far from a full line. On an empty board
-     * the next round can hardly clear anything, which is how combos end after the board was
-     * cleared completely. 0 switches this off, 1 switches it on.
-     */
-    val needsNearLine: Double = 1.0,
-    /**
      * How much of a board's rating is replaced by the rating of the boards one more piece
      * later, averaged over all shapes placed as well as possible; between 0 and 1.
      */
@@ -183,20 +177,8 @@ class HeuristicEvaluator(val weights: Weights = Weights()) {
         }
 
         val next = clearing
-        // The line closest to full: with four cells or fewer to go a later piece has its usual
-        // chance, with all eight to go it has none.
-        var fewestEmpty = SIZE
-        for (i in 0 until SIZE) {
-            fewestEmpty = minOf(
-                fewestEmpty,
-                SIZE - (bits and (ROW_0 shl (i * SIZE))).countOneBits(),
-                SIZE - (bits and (COL_0 shl i)).countOneBits(),
-            )
-        }
-        val near = ((SIZE - fewestEmpty) / 4.0).coerceAtMost(1.0)
-        val later = weights.laterClear * (1 - weights.needsNearLine * (1 - near))
         var miss = 1 - next
-        repeat(ROUND - 1) { miss *= 1 - maxOf(next, later) }
+        repeat(ROUND - 1) { miss *= 1 - maxOf(next, weights.laterClear) }
         val future = if (fitting > 0) weights.lookahead * (sum / fitting - evaluate(bits)) else 0.0
         return Outlook(future, comboWorth(comboLength) * miss)
     }

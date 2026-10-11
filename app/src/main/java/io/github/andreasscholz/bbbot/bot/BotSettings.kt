@@ -5,7 +5,10 @@ import androidx.core.content.edit
 import io.github.andreasscholz.bbbot.game.Strategy
 import io.github.andreasscholz.bbbot.vision.KnownBoard
 
-/** What the user chose in the app, kept across restarts. */
+/** The combo at a score: its length, and whether the round then had its clear. */
+data class SavedCombo(val length: Int, val clearedThisRound: Boolean, val score: Long)
+
+/** What the user chose in the app, and what the bot keeps, across restarts. */
 class BotSettings(context: Context) {
 
     private val preferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -28,10 +31,20 @@ class BotSettings(context: Context) {
      * still waits for the few clears whose worth is not known yet.
      */
     var measure: Boolean
-        get() = preferences.getBoolean(KEY_MEASURE, false)
+        get() = preferences.getBoolean(KEY_MEASURE, true)
         set(value) = preferences.edit { putBoolean(KEY_MEASURE, value) }
 
+    /** The combo as the last run counted it, to go on with after the bot was started anew. */
+    var savedCombo: SavedCombo?
+        get() {
+            val parts = preferences.getString(KEY_COMBO, null)?.split(",") ?: return null
+            if (parts.size != 3) return null
+            return SavedCombo(parts[0].toIntOrNull() ?: return null, parts[1] == "true", parts[2].toLongOrNull() ?: return null)
+        }
+        set(value) = preferences.edit { putString(KEY_COMBO, value?.let { "${it.length},${it.clearedThisRound},${it.score}" }) }
+
     private companion object {
+        const val KEY_COMBO = "combo"
         const val KEY_MEASURE = "measure"
         const val KEY_STRATEGY = "strategy"
         const val KEY_KNOWN_BOARD = "known_board"

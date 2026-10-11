@@ -79,6 +79,8 @@ class Player(
         var lastScore: Long? = null
         var highestScore = -1L
         var scoreAtMove: Long? = null
+        var equalLooks = 0
+        var placedAt = 0L
         var scoreMoving = false
         var scoreLooks = 0
         val measure = settings.measure
@@ -145,10 +147,14 @@ class Player(
                 val score = ScoreReader.read(shot)?.takeIf { it >= highestScore && it <= highestScore + MAX_SCORE_STEP || highestScore < 0 }
                 if (score != null) highestScore = score
                 val scoreStable = score != null && score == lastScore
+                equalLooks = if (scoreStable) equalLooks + 1 else 0
                 lastScore = score
-                // Right after a clear the score has not begun to move yet, so standing still is
-                // not enough: it must also have gone up since the piece was placed.
-                val counted = scoreStable && (scoreAtMove == null || score!! > scoreAtMove)
+                // The score counts up late and in stages: first the points for the blocks, then,
+                // after a pause, those for the clear. So it only counts as settled when it has
+                // gone up since the piece was placed, has stood still for three looks in a row,
+                // and the clear is a while ago.
+                val counted = equalLooks >= 2 && (scoreAtMove == null || score!! > scoreAtMove) &&
+                    SystemClock.elapsedRealtime() - placedAt >= SETTLE_SCORE_MS
                 if ((measure || exact) && scoreMoving && !counted && scoreLooks < MAX_SCORE_LOOKS) {
                     scoreLooks++
                     delay(SCORE_MS)
@@ -173,6 +179,16 @@ class Player(
                 arriving = null
 
                 if (comboLength < 0) {
+                    // A run that goes on where the last one stopped, after a new version was
+                    // installed for example, takes over the combo as that run counted it.
+                    settings.savedCombo?.let { saved ->
+                        if (score != null && score >= saved.score && score - saved.score <= MAX_SCORE_STEP) {
+                            comboLength = saved.length
+                            clearedThisRound = saved.clearedThisRound
+                        }
+                    }
+                }
+                if (comboLength < 0) {
                     // Started in the middle of a game: the symbol behind the score tells whether a
                     // combo is running, but not for how long. It is taken to be of middling length:
                     // taken for a very long one when it was not, it once had the board filled up
@@ -190,6 +206,7 @@ class Player(
                 }
                 lastTray = screen.tray.size
 
+                if (score != null) settings.savedCombo = SavedCombo(comboLength, clearedThisRound, score)
                 val solveStarted = SystemClock.elapsedRealtime()
                 val plan = withContext(Dispatchers.Default) {
                     solver.solve(screen.board, screen.tray.map { it.piece }, Combo(comboLength, clearedThisRound))
@@ -266,6 +283,7 @@ class Player(
                         cells = placement.piece.cellCount,
                         exact = waitForScore,
                     )
+                    placedAt = SystemClock.elapsedRealtime()
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
                     delay(RETRY_MS)
@@ -334,6 +352,7 @@ class Player(
 
         // Waiting for the score to stand still after a clear: how often to look, and how long between.
         const val MAX_SCORE_STEP = 2_000_000L
+        const val SETTLE_SCORE_MS = 3000L
         const val MAX_SCORE_LOOKS = 30
         const val SCORE_MS = 100L
         const val REJECTED_BEFORE_SAVE = 3

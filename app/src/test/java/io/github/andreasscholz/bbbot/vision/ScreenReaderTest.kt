@@ -167,6 +167,19 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `reads an empty board on a furry background`() {
+        val screen = reader.read(load("fur-empty-board.png"))!!
+
+        assertEquals(Board.EMPTY, screen.board)
+        assertEquals(
+            listOf(Piece.of("XXXXX"), Piece.of(".X", ".X", "XX"), Piece.of(".X", "XX", ".X")),
+            screen.tray.map { it.piece },
+        )
+        assertEquals(61f, screen.geometry.left, 4f)
+        assertEquals(580f, screen.geometry.top, 4f)
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

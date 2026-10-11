@@ -90,7 +90,7 @@ class Player(
                         rejected = 0
                         // Fewer blocks than the piece added means that lines were cleared.
                         val cleared = screen.board.filledCount < move.before.filledCount + move.cells
-                        piecesSinceClear = if (cleared) 0 else piecesSinceClear + 1
+                        if (cleared) piecesSinceClear = 0 else if (move.countsForCombo) piecesSinceClear++
                     } else if (++rejected == REJECTED_BEFORE_SAVE) {
                         // The game keeps refusing the move, so the bot misreads something.
                         val file = captureStore.save(shot, "rejected")
@@ -121,7 +121,13 @@ class Player(
                 onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines))
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
                 if (drag(screen, DragPlan.of(screen.geometry, screen.tray[placement.pieceIndex], placement))) {
-                    pending = PendingMove(screen.board, result.board, result.linesCleared, placement.piece.cellCount)
+                    pending = PendingMove(
+                        before = screen.board,
+                        expected = result.board,
+                        lines = result.linesCleared,
+                        cells = placement.piece.cellCount,
+                        countsForCombo = plan.clearPossible,
+                    )
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
                     delay(RETRY_MS)
@@ -159,6 +165,8 @@ class Player(
         val lines: Int,
         /** The number of blocks of the piece. */
         val cells: Int,
+        /** False for a piece of a round in which nothing could be cleared anyway. */
+        val countsForCombo: Boolean,
         /** The board of the latest look that did not show the expected one. */
         val seen: Board? = null,
         val looks: Int = 0,

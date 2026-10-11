@@ -31,7 +31,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Game model and solver                     | done    |
 | Accessibility service, overlay, gestures  | done    |
 | Board and piece recognition               | done    |
-| Play loop                                 | planned |
+| Play loop                                 | done    |
 
 ## Using it
 
@@ -39,12 +39,16 @@ screenshot ──► recognition ──► solver ──► gestures
 2. Switch on "BBBot" in the accessibility settings; the app has a button that leads there.
    The service takes screenshots and performs gestures. It does not read the contents of
    other apps, and the app has no internet permission.
-3. Open Block Blast. A small BBBot panel appears on top of the game and disappears when the
-   game is left. It can be dragged by its text.
+3. Open Block Blast and start a game. A small BBBot panel appears on top of the game and
+   disappears when the game is left. It can be dragged by its text.
+4. Press the play button in the panel. The bot plays until it is stopped with the same
+   button, the game is left or no piece fits any more. Touching the screen while it plays
+   interrupts the piece it is dragging; it simply tries again.
 
 The camera button in the panel saves what the bot sees as a PNG in
-`Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone. These pictures are
-what the recognition is developed and tested against:
+`Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone. The bot also saves
+a picture there on its own (`unreadable-…`) when it cannot make sense of the screen for a
+while. These pictures are what the recognition is developed and tested against:
 
 ```sh
 adb pull /sdcard/Android/data/io.github.andreasscholz.bbbot/files/captures
@@ -56,7 +60,9 @@ The game changes its colors with its themes, so `ScreenReader` knows no colors. 
 only this much:
 
 - the background reaches the left edge of the screen; the color there is the background of
-  that row of pixels,
+  that row of pixels. How far a pixel may stray from it and still be background is measured
+  on the left edge of each screenshot, because plain wood needs little room and veined marble
+  a lot,
 - the board is the tallest band that is not background almost all the way across, and it is
   square,
 - the darkest cell of the grid is an empty one, and every cell that looks different from it
@@ -67,8 +73,23 @@ only this much:
 Screens that do not fit (menus, ads, a line being cleared, pieces still flying in) are
 reported as "no game", and the bot simply looks again.
 
-The unit tests read real screenshots from `app/src/test/resources/screens`. They were taken
-on a 1080×2400 phone with the wooden theme, the only one seen so far.
+The unit tests read real screenshots from `app/src/test/resources/screens`, taken on a
+1080×2400 phone in the wooden, the marble and the pink theme.
+
+## Moving a piece
+
+The game does not keep a dragged piece under the finger. A touched piece jumps up by about
+2.25 board cells, and from there it moves one and a half times as far as the finger does.
+Where the piece is grabbed makes no difference. `DragPlan` works backwards from the cells the
+piece should cover to the point where the finger has to be lifted. These numbers were
+measured in the game by holding pieces in the air and comparing screenshots.
+
+## The play loop
+
+`Player` looks, thinks and moves one piece at a time. After a drag it waits until the screen
+shows the board it expects, or until two looks in a row agree, so that it does not plan on
+a board whose lines are still vanishing. A piece that slipped back into the tray is simply
+tried again on the next turn.
 
 ## The solver
 

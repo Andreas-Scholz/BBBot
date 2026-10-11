@@ -25,16 +25,18 @@ data class GameScreen(val geometry: BoardGeometry, val board: Board, val tray: L
 /**
  * Finds the board and the offered pieces in a screenshot.
  *
- * Nothing here knows the colors of a particular theme. The reader only assumes that the
- * background reaches the left edge of the screen, that the board is a large square of something
- * else, that empty cells are darker than blocks, and that the offered pieces lie below the
- * board, one in each third of the screen. It was developed against the wooden theme.
+ * The game changes its theme every now and then, so nothing here knows any colors. The reader
+ * only assumes that the background reaches the left edge of the screen, that the board is a
+ * large square of something else, that empty cells are darker than blocks, and that the offered
+ * pieces lie below the board, one in each third of the screen. It was developed against the
+ * wooden and the marble theme.
  */
 class ScreenReader {
 
     /** Returns null when the screenshot does not show a game waiting for a move. */
     fun read(shot: Screenshot): GameScreen? {
-        val frame = findFrame(shot) ?: return null
+        val scene = Scene(shot)
+        val frame = findFrame(scene) ?: return null
         val inset = frame.width * FRAME_THICKNESS
         val geometry = BoardGeometry(
             left = frame.left + inset,
@@ -42,8 +44,30 @@ class ScreenReader {
             cellSize = (frame.width - 2 * inset) / Board.SIZE,
         )
         val board = readBoard(shot, geometry) ?: return null
-        val tray = readTray(shot, frame, geometry) ?: return null
+        val tray = readTray(scene, frame, geometry) ?: return null
         return GameScreen(geometry, board, tray)
+    }
+
+    /**
+     * A screenshot together with what counts as background in it. The background of a row is
+     * the color at its left edge. How far a pixel may be from that color and still be background
+     * depends on the theme: plain wood needs little room, veined marble a lot. The room is
+     * measured on the left edge itself, by comparing pixels a short way apart.
+     */
+    private class Scene(val shot: Screenshot) {
+        private val tolerance: Int
+
+        init {
+            val distances = IntArray((shot.height - TEXTURE_REACH) / TEXTURE_STEP) {
+                val y = it * TEXTURE_STEP
+                distance(shot[EDGE_X - 2, y], shot[EDGE_X + 2, y + TEXTURE_REACH])
+            }
+            distances.sort()
+            val typical = distances[distances.size * 99 / 100]
+            tolerance = (typical * TEXTURE_FACTOR).toInt().coerceIn(MIN_TOLERANCE, MAX_TOLERANCE)
+        }
+
+        fun isForeground(x: Int, y: Int): Boolean = distance(shot[x, y], shot[EDGE_X, y]) > tolerance
     }
 
     private class Frame(val left: Int, val top: Int, val right: Int, val bottom: Int) {
@@ -52,7 +76,8 @@ class ScreenReader {
     }
 
     /** The board with its border: the tallest band that is not background nearly all the way across. */
-    private fun findFrame(shot: Screenshot): Frame? {
+    private fun findFrame(scene: Scene): Frame? {
+        val shot = scene.shot
         val from = (shot.width * 0.1f).toInt()
         val to = (shot.width * 0.9f).toInt()
         val needed = ((to - from) / SCAN_STEP * COVERAGE).toInt()
@@ -65,7 +90,7 @@ class ScreenReader {
             var hits = 0
             var x = from
             while (x < to) {
-                if (isForeground(shot, x, y)) hits++
+                if (scene.isForeground(x, y)) hits++
                 x += SCAN_STEP
             }
             if (hits >= needed) {
@@ -88,7 +113,7 @@ class ScreenReader {
             var hits = 0
             var y = bestTop
             while (y <= bestBottom) {
-                if (isForeground(shot, x, y)) hits++
+                if (scene.isForeground(x, y)) hits++
                 y += SCAN_STEP
             }
             if (hits >= rows * COVERAGE) {
@@ -133,7 +158,8 @@ class ScreenReader {
         return Board(bits)
     }
 
-    private fun readTray(shot: Screenshot, frame: Frame, geometry: BoardGeometry): List<TrayPiece>? {
+    private fun readTray(scene: Scene, frame: Frame, geometry: BoardGeometry): List<TrayPiece>? {
+        val shot = scene.shot
         val top = frame.bottom + (frame.height * TRAY_TOP).toInt()
         val bottom = minOf(shot.height - 1, frame.bottom + (frame.height * TRAY_BOTTOM).toInt())
         if (bottom <= top) return null
@@ -143,7 +169,7 @@ class ScreenReader {
         for (slot in 0 until SLOTS) {
             val slotLeft = maxOf(shot.width * slot / SLOTS, EDGE_X + 1)
             val slotRight = shot.width * (slot + 1) / SLOTS - 1
-            val box = boundsOfForeground(shot, slotLeft, top, slotRight, bottom) ?: continue
+            val box = boundsOfForeground(scene, slotLeft, top, slotRight, bottom) ?: continue
 
             // A piece touching the border of the area is still flying in, or it is something else.
             if (box.top == top || box.bottom == bottom || box.left == slotLeft || box.right == slotRight) return null
@@ -158,7 +184,7 @@ class ScreenReader {
                 for (col in 0 until cols) {
                     val x = (box.left + (col + 0.5f) * cell).toInt()
                     val y = (box.top + (row + 0.5f) * cell).toInt()
-                    if (isForeground(shot, x, y)) cells += row to col
+                    if (scene.isForeground(x, y)) cells += row to col
                 }
             }
             val piece = Piece.ofCells(cells.ifEmpty { return null })
@@ -170,12 +196,12 @@ class ScreenReader {
     }
 
     /** The smallest box around the rows and columns of an area that clearly hold foreground. */
-    private fun boundsOfForeground(shot: Screenshot, left: Int, top: Int, right: Int, bottom: Int): Frame? {
+    private fun boundsOfForeground(scene: Scene, left: Int, top: Int, right: Int, bottom: Int): Frame? {
         val perColumn = IntArray(right - left + 1)
         val perRow = IntArray(bottom - top + 1)
         for (y in top..bottom) {
             for (x in left..right) {
-                if (isForeground(shot, x, y)) {
+                if (scene.isForeground(x, y)) {
                     perColumn[x - left]++
                     perRow[y - top]++
                 }
@@ -192,25 +218,18 @@ class ScreenReader {
         )
     }
 
-    /** Whether a pixel differs from the background, taken from the left edge of the same row. */
-    private fun isForeground(shot: Screenshot, x: Int, y: Int): Boolean =
-        distance(shot[x, y], shot[EDGE_X, y]) > FOREGROUND_DISTANCE
-
-    /** The sum of the red, green and blue differences of two colors. */
-    private fun distance(a: Int, b: Int): Int =
-        abs((a shr 16 and 0xFF) - (b shr 16 and 0xFF)) +
-            abs((a shr 8 and 0xFF) - (b shr 8 and 0xFF)) +
-            abs((a and 0xFF) - (b and 0xFF))
-
-    private fun luminance(pixel: Int): Int =
-        ((pixel shr 16 and 0xFF) * 299 + (pixel shr 8 and 0xFF) * 587 + (pixel and 0xFF) * 114) / 1000
-
     private companion object {
         /** Column that is taken to show the background in every row. */
         const val EDGE_X = 4
 
-        /** Color distance above which a pixel is not background. */
-        const val FOREGROUND_DISTANCE = 36
+        // The texture of the background is judged by pixels this far apart, every few rows.
+        const val TEXTURE_REACH = 25
+        const val TEXTURE_STEP = 3
+
+        /** How much further than its typical texture the background is allowed to stray. */
+        const val TEXTURE_FACTOR = 1.6f
+        const val MIN_TOLERANCE = 36
+        const val MAX_TOLERANCE = 100
 
         const val SCAN_STEP = 4
         const val COVERAGE = 0.9f
@@ -242,5 +261,14 @@ class ScreenReader {
 
         const val SIZE_TOLERANCE = 0.3f
         const val MIN_LINE_PIXELS = 6
+
+        /** The sum of the red, green and blue differences of two colors. */
+        fun distance(a: Int, b: Int): Int =
+            abs((a shr 16 and 0xFF) - (b shr 16 and 0xFF)) +
+                abs((a shr 8 and 0xFF) - (b shr 8 and 0xFF)) +
+                abs((a and 0xFF) - (b and 0xFF))
+
+        fun luminance(pixel: Int): Int =
+            ((pixel shr 16 and 0xFF) * 299 + (pixel shr 8 and 0xFF) * 587 + (pixel and 0xFF) * 114) / 1000
     }
 }

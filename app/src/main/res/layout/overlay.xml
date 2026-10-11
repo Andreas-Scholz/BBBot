@@ -8,6 +8,14 @@
     android:padding="4dp">
 
     <ImageButton
+        android:id="@+id/overlay_toggle"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/overlay_start"
+        android:src="@drawable/ic_play" />
+
+    <ImageButton
         android:id="@+id/overlay_capture"
         android:layout_width="40dp"
         android:layout_height="40dp"

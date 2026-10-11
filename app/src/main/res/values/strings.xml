@@ -15,6 +15,13 @@
     <string name="service_description">Lets BBBot play Block Blast: it takes screenshots while the game is in front and drags the pieces onto the board. BBBot does not read the contents of other apps and sends nothing anywhere.</string>
 
     <string name="overlay_ready">BBBot is ready</string>
+    <string name="overlay_start">Start playing</string>
+    <string name="overlay_stop">Stop playing</string>
+    <string name="overlay_stopped">Stopped · Moves: %1$d · Lines: %2$d</string>
+    <string name="overlay_playing">Playing · Moves: %1$d · Lines: %2$d</string>
+    <string name="overlay_no_game">No game in sight · Moves: %1$d</string>
+    <string name="overlay_no_move">No piece fits · Moves: %1$d · Lines: %2$d</string>
+    <string name="overlay_error">Stopped by an error</string>
     <string name="overlay_capture">Save a screenshot</string>
     <string name="overlay_saved">Saved %1$s</string>
     <string name="overlay_capture_failed">Screenshot failed</string>

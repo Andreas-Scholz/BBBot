@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.widget.ImageButton
 import android.widget.TextView
 import io.github.andreasscholz.bbbot.R
 import kotlin.math.abs
@@ -18,13 +19,14 @@ import kotlin.math.abs
  * permission beyond the service itself. The panel can be dragged by its text in case it covers
  * something.
  */
-class BotOverlay(service: AccessibilityService, onCapture: () -> Unit) {
+class BotOverlay(private val service: AccessibilityService, onToggle: () -> Unit, onCapture: () -> Unit) {
 
     private val windowManager = service.getSystemService(WindowManager::class.java)
 
     @SuppressLint("InflateParams") // A window root has no parent to take layout parameters from.
     private val root: View = LayoutInflater.from(service).inflate(R.layout.overlay, null)
     private val status: TextView = root.findViewById(R.id.overlay_status)
+    private val toggle: ImageButton = root.findViewById(R.id.overlay_toggle)
 
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -43,6 +45,7 @@ class BotOverlay(service: AccessibilityService, onCapture: () -> Unit) {
         private set
 
     init {
+        toggle.setOnClickListener { onToggle() }
         root.findViewById<View>(R.id.overlay_capture).setOnClickListener { onCapture() }
         makeDraggable(status, ViewConfiguration.get(service).scaledTouchSlop)
     }
@@ -61,6 +64,12 @@ class BotOverlay(service: AccessibilityService, onCapture: () -> Unit) {
 
     fun setStatus(text: CharSequence) {
         status.text = text
+    }
+
+    /** Shows the button that stops the bot while it plays, and the one that starts it otherwise. */
+    fun setPlaying(playing: Boolean) {
+        toggle.setImageResource(if (playing) R.drawable.ic_stop else R.drawable.ic_play)
+        toggle.contentDescription = service.getString(if (playing) R.string.overlay_stop else R.string.overlay_start)
     }
 
     @SuppressLint("ClickableViewAccessibility") // The handle only moves the panel, there is nothing to click.

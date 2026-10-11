@@ -149,11 +149,55 @@ class ScreenReader(
                 right = x
             }
         }
-        val frame = Frame(left, bestTop, right, bestBottom)
-        if (left < 0 || abs(frame.width - frame.height) > frame.width * SQUARE_TOLERANCE) {
+        if (left < 0) return reject("no board: no column of the band is covered")
+        val frame = completed(scene, Frame(left, bestTop, right, bestBottom))
+        if (abs(frame.width - frame.height) > frame.width * SQUARE_TOLERANCE) {
             return reject("board is not square: ${frame.width} x ${frame.height}")
         }
         return frame
+    }
+
+    /**
+     * Makes up for an edge of the board that was taken for background. A row or column of
+     * blocks in the color of the background, pink blocks on pink for example, ends the band
+     * early. The board is square, so the missing strip is as wide as the difference of the
+     * sides, and it lies on the side where more of it is not background.
+     */
+    private fun completed(scene: Scene, frame: Frame): Frame {
+        val missing = abs(frame.width - frame.height)
+        val longer = maxOf(frame.width, frame.height)
+        if (missing <= longer * SQUARE_TOLERANCE || missing > longer * MAX_MISSING) return frame
+
+        fun foreground(left: Int, top: Int, right: Int, bottom: Int): Float {
+            if (left < 0 || top < 0 || right >= scene.shot.width || bottom >= scene.shot.height) return -1f
+            var hits = 0
+            var total = 0
+            for (y in top..bottom step SCAN_STEP) {
+                for (x in left..right step SCAN_STEP) {
+                    total++
+                    if (scene.isForeground(x, y)) hits++
+                }
+            }
+            return hits.toFloat() / total
+        }
+
+        return if (frame.height < frame.width) {
+            val above = foreground(frame.left, frame.top - missing, frame.right, frame.top - 1)
+            val below = foreground(frame.left, frame.bottom + 1, frame.right, frame.bottom + missing)
+            if (above > below) {
+                Frame(frame.left, frame.top - missing, frame.right, frame.bottom)
+            } else {
+                Frame(frame.left, frame.top, frame.right, frame.bottom + missing)
+            }
+        } else {
+            val before = foreground(frame.left - missing, frame.top, frame.left - 1, frame.bottom)
+            val after = foreground(frame.right + 1, frame.top, frame.right + missing, frame.bottom)
+            if (before > after) {
+                Frame(frame.left - missing, frame.top, frame.right, frame.bottom)
+            } else {
+                Frame(frame.left, frame.top, frame.right + missing, frame.bottom)
+            }
+        }
     }
 
     /**
@@ -322,6 +366,9 @@ class ScreenReader(
         const val MIN_BOARD_WIDTH = 0.6f
 
         const val SQUARE_TOLERANCE = 0.04f
+
+        /** The most of a side that may be missing and made up for, as a fraction of the side. */
+        const val MAX_MISSING = 0.4f
 
         const val BORDER_SAMPLES = 31
 

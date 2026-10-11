@@ -25,8 +25,7 @@ class BotSettings(context: Context) {
     /**
      * Whether the bot waits after every clear until the score stands still, so that the trace
      * tells exactly what each piece earned. It makes the bot much slower. Without it the bot
-     * still waits for the few clears whose worth is not known yet, and once when it was
-     * started into a running combo, to find out how long that is.
+     * still waits for the few clears whose worth is not known yet.
      */
     var measure: Boolean
         get() = preferences.getBoolean(KEY_MEASURE, false)

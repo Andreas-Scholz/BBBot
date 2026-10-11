@@ -6,7 +6,6 @@ import io.github.andreasscholz.bbbot.game.Board
 import io.github.andreasscholz.bbbot.game.Combo
 import io.github.andreasscholz.bbbot.game.HeuristicEvaluator
 import io.github.andreasscholz.bbbot.game.Piece
-import io.github.andreasscholz.bbbot.game.Scoring
 import io.github.andreasscholz.bbbot.game.Solver
 import io.github.andreasscholz.bbbot.vision.ComboIcon
 import io.github.andreasscholz.bbbot.vision.GameScreen
@@ -18,7 +17,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /** What the bot is doing, for the panel. */
 data class PlayStatus(val state: State, val moves: Int, val lines: Int, val score: Long? = null) {
@@ -84,13 +82,8 @@ class Player(
         var scoreMoving = false
         var scoreLooks = 0
         val measure = settings.measure
-        // Whether the score is waited for after the piece placed last, and the clear that is
-        // being measured to find out how long the combo really is.
+        // Whether the score is waited for after the piece placed last.
         var exact = false
-        var calibration: Calibration? = null
-        // Whether the length of the combo is a guess, because the bot was started into a running one.
-        var comboGuessed = false
-        var settleLooks = 0
         try {
             while (true) {
                 val shot = screenCapture.capture()
@@ -143,7 +136,6 @@ class Player(
                     previousAsExpected = screen.board == move.expected
                     if (move.lines > 0) scoreMoving = true
                     exact = move.exact
-                    if (screen.board != move.expected) calibration = null
                     pending = null
                 }
 
@@ -161,21 +153,6 @@ class Player(
                     scoreLooks++
                     delay(SCORE_MS)
                     continue
-                }
-                calibration?.let { measured ->
-                    // What a clear earns tells how long the combo is: late in a game a line was worth
-                    // a fixed step for every piece that cleared something. This replaces the guess
-                    // made when the bot was started in the middle of a combo.
-                    if (scoreMoving && counted) {
-                        val earned = score!! - measured.scoreBefore - measured.cells
-                        val length = (earned / (Scoring.STEP * Scoring.worth(measured.lines))).roundToInt()
-                        if (length >= 1) {
-                            Log.i(TAG, "A clear of ${measured.lines} earned $earned: the combo is $length long, guessed $comboLength")
-                            comboLength = length
-                            comboGuessed = false
-                        }
-                    }
-                    calibration = null
                 }
                 exact = false
                 scoreMoving = false
@@ -199,10 +176,11 @@ class Player(
                     // Started in the middle of a game: the symbol behind the score tells whether a
                     // combo is running, but not for how long. It is taken to be of middling length:
                     // taken for a very long one when it was not, it once had the board filled up
-                    // to defend it until no round fit any more.
+                    // to defend it until no round fit any more. Working the length out from what a
+                    // clear earns was tried and gave nonsense, because the score counts up late
+                    // and in stages, and there is no telling when it has taken a clear in.
                     comboLength = if (ComboIcon.share(shot) > COMBO_CLEARLY_RUNNING) UNKNOWN_COMBO else 0
                     clearedThisRound = comboLength > 0
-                    comboGuessed = comboLength > 0
                 }
                 if (screen.tray.size == HeuristicEvaluator.ROUND && lastTray != HeuristicEvaluator.ROUND) {
                     // A new round begins. The one before it had to clear something to keep the combo.
@@ -254,23 +232,9 @@ class Player(
                 val placement = plan.placements.first()
 
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
-                // A guessed length of the combo is replaced by a measured one at the first clear.
-                // That needs a score that stands still before the piece as well as after it. A
-                // count the bot kept from the start of a combo is left alone: early in a game
-                // the measurement did not agree with it, and why is not known yet.
-                var calibrate = false
-                if (result.linesCleared > 0 && comboGuessed && score != null) {
-                    if (!scoreStable && settleLooks < MAX_SCORE_LOOKS) {
-                        settleLooks++
-                        delay(SCORE_MS)
-                        continue
-                    }
-                    calibrate = scoreStable
-                }
-                settleLooks = 0
                 // What four lines at once or an emptied board earn is not known yet, so those are
                 // always waited for; the trace then tells.
-                val waitForScore = measure || calibrate || result.linesCleared >= 4 || result.board == Board.EMPTY
+                val waitForScore = measure || result.linesCleared >= 4 || result.board == Board.EMPTY
 
                 onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score))
                 trace.add(
@@ -302,7 +266,6 @@ class Player(
                         cells = placement.piece.cellCount,
                         exact = waitForScore,
                     )
-                    if (calibrate) calibration = Calibration(score!!, placement.piece.cellCount, result.linesCleared)
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
                     delay(RETRY_MS)
@@ -346,9 +309,6 @@ class Player(
         val seen: Board? = null,
         val looks: Int = 0,
     )
-
-    /** A clear that is being measured: the score before its piece, and what the piece is and does. */
-    private class Calibration(val scoreBefore: Long, val cells: Int, val lines: Int)
 
     private companion object {
         const val TAG = "BBBot"

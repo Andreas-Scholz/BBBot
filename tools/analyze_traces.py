@@ -173,6 +173,39 @@ def main(folders):
         common = Counter(round(v) for v in values).most_common(3)
         print(f'{what:32} {len(values):4} clears   worth ' + ', '.join(f'{k} single lines ({v}x)' for k, v in common))
 
+    section('Emptying the board')
+    # Does a line earn more after the board was emptied? For every piece that emptied it: what
+    # single lines earned before and after, and by how much that grew per clearing piece.
+    emptied = 0
+    for rows in traces:
+        clears = 0
+        singles = []
+        for row in rows:
+            if not row['lines']:
+                continue
+            if row.get('earned') is not None and row['lines'] == 1 and not row['all_clear'] and row['earned'] > 0:
+                singles.append((clears, row['earned'], int(row['move'])))
+            if row['all_clear']:
+                row['at_clear'] = clears
+            clears += 1
+        for row in rows:
+            if not row['all_clear']:
+                continue
+            emptied += 1
+            at = row['at_clear']
+            before = [p for p in singles if p[0] < at][-8:]
+            after = [p for p in singles if p[0] > at][:8]
+            print(f'{row["trace"]} piece {row["move"]} emptied the board with {row["lines"]} line(s)'
+                  + (f', which earned {row["earned"]:,}' if row.get('earned') is not None else ''))
+            for name, part in (('before', before), ('after', after)):
+                if len(part) >= 2:
+                    step = statistics.median((b[1] - a[1]) / (b[0] - a[0]) for a, b in zip(part, part[1:]))
+                    print(f'    {name}: single lines earned {", ".join(str(p[1]) for p in part)}; step per clearing piece {step:.1f}')
+                elif part:
+                    print(f'    {name}: a single line earned {part[0][1]}')
+    if not emptied:
+        print('The board was never emptied in these traces.')
+
     section('Rounds without a clear, and what the next clear earned')
     for rows in traces:
         by_round = defaultdict(list)

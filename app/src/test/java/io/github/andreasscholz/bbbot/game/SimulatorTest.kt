@@ -24,19 +24,19 @@ class SimulatorTest {
     }
 
     @Test
-    fun `the risky strategy scores more per round than the safe one`() {
-        // The strategies only part ways once a combo is long, so the games must be long too.
-        fun perRound(strategy: Strategy): Double {
-            val simulator = Simulator(quick(strategy.weights))
-            val results = List(16) { simulator.play(Random(300 + it), maxRounds = 500) }
+    fun `every strategy scores far more per round than a solver that does not care about combos`() {
+        fun perRound(weights: Weights): Double {
+            val simulator = Simulator(quick(weights))
+            val results = List(12) { simulator.play(Random(300 + it), maxRounds = 300) }
             return results.sumOf { it.score } / results.sumOf { it.rounds }.toDouble()
         }
 
-        val safe = perRound(Strategy.SAFE)
-        val risky = perRound(Strategy.RISKY)
-        println("points per round: $safe safe, $risky risky")
-
-        assertTrue("$risky is not more than $safe", risky > safe)
+        val careless = perRound(Weights(comboBreak = 0.0))
+        for (strategy in Strategy.entries) {
+            val points = perRound(strategy.weights)
+            println("points per round: $points ${strategy.name.lowercase()}, $careless without care for the combo")
+            assertTrue("$points is not much more than $careless", points > careless * 2)
+        }
     }
 
     @Test

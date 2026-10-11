@@ -190,9 +190,10 @@ traces of real games (see "Traces" below):
 
 Four lines at once earned 14.4 single lines, measured twice; five earned about 20, measured
 once and less surely. Six were not seen. Emptying the board happened once and was not
-measured cleanly; it earned no more than about a single line. The bot waits for the score
-after these, so that traces fill the gaps, and it avoids an empty board, so that one will
-only show by chance.
+measured cleanly. After an emptied board the game shows a kind of multiplier, and the one
+time it happened in a traced game a line was worth about 76 points per step of the combo
+before it and about 103 after. Whether emptying the board raises what every later clear
+earns is being measured; the bot no longer avoids an empty board, as it did for a while.
 
 ### The pieces
 
@@ -219,8 +220,7 @@ The solver plays by that:
 - A board costs the worth times the chance that the next round clears nothing. What the
   first piece of that round can do is read off the board, as the share of all shapes that
   could clear something at once. The two pieces after it can be set up for and get a chance
-  of up to 30 %, less on a board that is far from a full line: on an empty board a round can
-  hardly clear anything, which is how combos end after the board was cleared completely.
+  of at least 30 %.
 - A piece that clears something gets a small bonus however many lines it clears, so that two
   pieces clearing a line each are preferred to one clearing two.
 

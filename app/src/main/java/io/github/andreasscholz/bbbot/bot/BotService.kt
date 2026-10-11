@@ -2,6 +2,7 @@ package io.github.andreasscholz.bbbot.bot
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import io.github.andreasscholz.bbbot.R
@@ -13,12 +14,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -33,6 +36,7 @@ class BotService : AccessibilityService() {
     private lateinit var captureStore: CaptureStore
     private lateinit var overlay: BotOverlay
     private lateinit var settings: BotSettings
+    private lateinit var gameLog: GameLog
     private var strategy = Strategy.BALANCED
     private var playing: Job? = null
     private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
@@ -43,6 +47,7 @@ class BotService : AccessibilityService() {
         overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshotOnRequest)
         overlay.setStatus(getString(R.string.overlay_ready))
         settings = BotSettings(this)
+        gameLog = GameLog(this)
         mutableConnected.value = true
     }
 
@@ -80,14 +85,22 @@ class BotService : AccessibilityService() {
         lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
         showStatus(lastStatus)
         overlay.setPlaying(true)
+        val played = strategy
+        val started = SystemClock.elapsedRealtime()
+        suspend fun log(reason: String, screenshot: String) = gameLog.add(
+            played, reason, lastStatus.moves, lastStatus.lines, (SystemClock.elapsedRealtime() - started) / 1000, screenshot,
+        )
         playing = scope.launch {
             try {
                 player.play()
-                // The pieces no longer fit: keep a picture of how the game ends.
-                saveScreenshot("final")
+                // The pieces no longer fit: keep a picture of how the game ends, named after the
+                // strategy that played it.
+                val file = saveScreenshot("${CaptureStore.FINAL_PREFIX}-${played.name.lowercase()}")
+                log("no_room", file.name)
                 overlay.setStatus(getString(R.string.overlay_no_move, lastStatus.moves))
             } catch (e: CancellationException) {
                 overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.lines))
+                withContext(NonCancellable) { log("stopped", "") }
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Playing failed", e)

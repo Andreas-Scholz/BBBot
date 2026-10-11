@@ -51,8 +51,11 @@ screenshot ──► recognition ──► solver ──► gestures
    screen while it plays interrupts the piece it is dragging; it simply tries again.
 
 When the pieces no longer fit, the bot stops without placing what still would, and saves a
-screenshot of the board and the score (`final-…`), so the end of every game can be looked at
-afterwards.
+screenshot of the board and the score (`final-<strategy>-…`), so the end of every game can be
+looked at afterwards. Every run is also added to `games.csv` in the same folder, with the
+strategy, the reason it ended (`no_room` or `stopped`), the pieces placed, the lines cleared,
+the seconds it took and the name of the screenshot. The score is only in the screenshot; the
+bot does not read it.
 
 The camera button in the panel saves what the bot sees as a PNG in
 `Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone, where the `final-…`

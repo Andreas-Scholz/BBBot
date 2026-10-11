@@ -63,8 +63,9 @@ private fun MainScreen() {
 
     Column(
         modifier = Modifier
-            .verticalScroll(rememberScrollState())
+            // The insets come first, or the text scrolls underneath the status bar.
             .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
         Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)

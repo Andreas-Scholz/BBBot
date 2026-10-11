@@ -29,9 +29,26 @@ screenshot ──► recognition ──► solver ──► gestures
 |-------------------------------------------|---------|
 | Project setup                             | done    |
 | Game model and solver                     | done    |
-| Accessibility service, overlay, gestures  | planned |
+| Accessibility service, overlay, gestures  | done    |
 | Board and piece recognition               | planned |
 | Play loop                                 | planned |
+
+## Using it
+
+1. Install the app and open it.
+2. Switch on "BBBot" in the accessibility settings; the app has a button that leads there.
+   The service takes screenshots and performs gestures. It does not read the contents of
+   other apps, and the app has no internet permission.
+3. Open Block Blast. A small BBBot panel appears on top of the game and disappears when the
+   game is left. It can be dragged by its text.
+
+The camera button in the panel saves what the bot sees as a PNG in
+`Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone. These pictures are
+what the recognition is developed and tested against:
+
+```sh
+adb pull /sdcard/Android/data/io.github.andreasscholz.bbbot/files/captures
+```
 
 ## The solver
 

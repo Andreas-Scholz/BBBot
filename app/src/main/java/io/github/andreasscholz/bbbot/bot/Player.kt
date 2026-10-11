@@ -21,7 +21,7 @@ data class PlayStatus(val state: State, val moves: Int, val lines: Int) {
         /** The screen does not show a game waiting for a move. */
         NO_GAME,
 
-        /** None of the offered pieces fits; the game is over. */
+        /** The offered pieces do not all fit any more; the bot has stopped. */
         NO_MOVE,
     }
 }
@@ -40,7 +40,11 @@ class Player(
     private val reader = ScreenReader()
     private val solver = Solver()
 
-    /** Plays until the coroutine is cancelled. */
+    /**
+     * Plays until the offered pieces do not all fit any more, or until the coroutine is
+     * cancelled. In the first case the bot leaves the board as it is instead of placing what
+     * still fits, so that the end of the game can be looked at.
+     */
     suspend fun play() {
         var moves = 0
         var lines = 0
@@ -49,6 +53,8 @@ class Player(
         var rejected = 0
         // Pieces placed since a line was last cleared; the solver needs it to keep the combo alive.
         var piecesSinceClear = 0
+        // The board on which the pieces did not fit at the last look.
+        var deadEnd: Board? = null
         try {
             while (true) {
                 val shot = screenCapture.capture()
@@ -96,12 +102,20 @@ class Player(
                 val plan = withContext(Dispatchers.Default) {
                     solver.solve(screen.board, screen.tray.map { it.piece }, piecesSinceClear)
                 }
-                val placement = plan.placements.firstOrNull()
-                if (placement == null) {
+                if (!plan.complete) {
+                    // Stopping ends the run, so a board misread in mid-animation must not cause it:
+                    // the same verdict is needed on two looks in a row.
+                    if (deadEnd != screen.board) {
+                        deadEnd = screen.board
+                        delay(RETRY_MS)
+                        continue
+                    }
+                    Log.i(TAG, "Not all pieces fit after $moves moves:\n${screen.board}")
                     onStatus(PlayStatus(PlayStatus.State.NO_MOVE, moves, lines))
-                    delay(RETRY_MS)
-                    continue
+                    return
                 }
+                deadEnd = null
+                val placement = plan.placements.first()
 
                 onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines))
                 val result = screen.board.place(placement.piece, placement.row, placement.col)

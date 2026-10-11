@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * The bot's hands and eyes. Android only lets an accessibility service take screenshots of
@@ -34,7 +35,7 @@ class BotService : AccessibilityService() {
     override fun onServiceConnected() {
         screenCapture = ScreenCapture(this)
         captureStore = CaptureStore(this)
-        overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshot)
+        overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshotOnRequest)
         overlay.setStatus(getString(R.string.overlay_ready))
         player = Player(screenCapture, Finger(this), captureStore, onStatus = ::showStatus)
         mutableConnected.value = true
@@ -72,6 +73,9 @@ class BotService : AccessibilityService() {
         playing = scope.launch {
             try {
                 player.play()
+                // The pieces no longer fit: keep a picture of how the game ends.
+                saveScreenshot("final")
+                overlay.setStatus(getString(R.string.overlay_no_move, lastStatus.moves))
             } catch (e: CancellationException) {
                 overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.lines))
                 throw e
@@ -94,29 +98,34 @@ class BotService : AccessibilityService() {
         val text = when (status.state) {
             PlayStatus.State.PLAYING -> getString(R.string.overlay_playing, status.moves, status.lines)
             PlayStatus.State.NO_GAME -> getString(R.string.overlay_no_game, status.moves)
-            PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.moves, status.lines)
+            PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.moves)
         }
         overlay.setStatus(text)
     }
 
     /** Saves what the bot sees as a PNG, for working on the recognition and for reporting problems. */
-    private fun saveScreenshot() {
+    private fun saveScreenshotOnRequest() {
         scope.launch {
             try {
-                // Without the panel, so the picture shows the whole game.
-                overlay.hide()
-                delay(PANEL_HIDE_MS)
-                val shot = screenCapture.capture()
-                overlay.show()
-                val file = captureStore.save(shot, "capture")
+                val file = saveScreenshot("capture")
                 overlay.setStatus(getString(R.string.overlay_saved, file.name))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Saving a screenshot failed", e)
-                overlay.show()
                 overlay.setStatus(getString(R.string.overlay_capture_failed))
             }
+        }
+    }
+
+    /** Saves a screenshot without the panel, so the picture shows the whole game and its score. */
+    private suspend fun saveScreenshot(prefix: String): File {
+        overlay.hide()
+        try {
+            delay(PANEL_HIDE_MS)
+            return captureStore.save(screenCapture.capture(), prefix)
+        } finally {
+            overlay.show()
         }
     }
 

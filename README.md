@@ -33,6 +33,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Board and piece recognition               | done    |
 | Play loop                                 | done    |
 | Combo strategy                            | done    |
+| Stop and take a picture at the end        | done    |
 
 ## Using it
 
@@ -43,13 +44,18 @@ screenshot ──► recognition ──► solver ──► gestures
 3. Open Block Blast and start a game. A small BBBot panel appears on top of the game and
    disappears when the game is left. It can be dragged by its text.
 4. Press the play button in the panel. The bot plays until it is stopped with the same
-   button, the game is left or no piece fits any more. Touching the screen while it plays
-   interrupts the piece it is dragging; it simply tries again.
+   button, the game is left or the offered pieces do not all fit any more. Touching the
+   screen while it plays interrupts the piece it is dragging; it simply tries again.
+
+When the pieces no longer fit, the bot stops without placing what still would, and saves a
+screenshot of the board and the score (`final-…`), so the end of every game can be looked at
+afterwards.
 
 The camera button in the panel saves what the bot sees as a PNG in
-`Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone. The bot also saves
-a picture there on its own (`unreadable-…`) when it cannot make sense of the screen for a
-while. These pictures are what the recognition is developed and tested against:
+`Android/data/io.github.andreasscholz.bbbot/files/captures/` on the phone, where the `final-…`
+pictures go as well. The bot also saves a picture there on its own when it cannot make sense
+of the screen for a while (`unreadable-…`) or when the game keeps refusing a move
+(`rejected-…`). These pictures are what the recognition is developed and tested against:
 
 ```sh
 adb pull /sdcard/Android/data/io.github.andreasscholz.bbbot/files/captures

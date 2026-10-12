@@ -10,14 +10,22 @@ import kotlin.math.abs
  * scores.
  *
  * Going by the most common bright color, and not by anything white, keeps other bright things
- * out: in one theme the combo symbol behind the score is a fried egg with a cream rim.
+ * out: in one theme the combo symbol behind the score is a fried egg with a cream rim. Only
+ * when that finds no score is anything bright and grey taken for part of a digit.
  *
  * Nothing is returned rather than a guess: when a digit matches no pattern well, when something
  * else white is in the way, or when there is no score.
  */
 object ScoreReader {
 
-    fun read(shot: Screenshot): Long? {
+    fun read(shot: Screenshot): Long? = read(shot, shaded = false) ?: read(shot, shaded = true)
+
+    /**
+     * With [shaded], everything bright and grey counts as part of a digit, not only what has
+     * the digits' most common color: one theme draws them like metal, white at the top and
+     * grey at the bottom. That is tried second, because more can get in its way.
+     */
+    private fun read(shot: Screenshot, shaded: Boolean): Long? {
         val top = (shot.height * TOP).toInt()
         val bottom = (shot.height * BOTTOM).toInt()
         val height = bottom - top
@@ -47,10 +55,13 @@ object ScoreReader {
         for (y in 0 until height) {
             for (x in 0 until shot.width) {
                 val pixel = shot[x, top + y]
-                val distance = abs((pixel shr 16 and 0xFF) - digitRed) +
-                    abs((pixel shr 8 and 0xFF) - digitGreen) +
-                    abs((pixel and 0xFF) - digitBlue)
-                if (distance <= DIGIT_COLOR_DISTANCE) {
+                val red = pixel shr 16 and 0xFF
+                val green = pixel shr 8 and 0xFF
+                val blue = pixel and 0xFF
+                val distance = abs(red - digitRed) + abs(green - digitGreen) + abs(blue - digitBlue)
+                val low = minOf(red, green, blue)
+                val grey = shaded && low >= SHADED && maxOf(red, green, blue) - low <= SHADED_SPREAD
+                if (distance <= DIGIT_COLOR_DISTANCE || grey) {
                     white[y * shot.width + x] = true
                     perRow[y]++
                 }
@@ -157,6 +168,10 @@ object ScoreReader {
 
     private const val WHITE = 190
     private const val WHITE_SPREAD = 40
+
+    // The darkest and the most colorful a shaded digit gets.
+    private const val SHADED = 165
+    private const val SHADED_SPREAD = 20
 
     // Colors are counted in cubes of 8 × 8 × 8.
     private const val COLOR_SHIFT = 3

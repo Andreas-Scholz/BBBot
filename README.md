@@ -239,30 +239,33 @@ traces of real games (see "Traces" below):
 ### The pieces
 
 The game does not hand out all shapes equally often, and which ones it hands out depends on
-the board. Counted in 2117 rounds, 6227 pieces (`PieceCatalog` has the list):
+the board. Counted in 4311 rounds, 12,743 pieces (`tools/count_pieces.py` writes them into
+`PieceCatalog`):
 
 | Blocks on the board | 0–9    | 10–14  | 15–19  | 20 and more |
 |---------------------|--------|--------|--------|-------------|
-| 3×3 square          | 10.0 % | 10.1 % | 14.4 % | 14.2 %      |
-| 2×2 square          | 5.8 %  | 7.1 %  | 8.3 %  | 10.7 %      |
-| All rectangles      | 22 %   | 29 %   | 34 %   | 37 %        |
-| Straight lines      | 19 %   | 19 %   | 20 %   | 20 %        |
-| Bent shapes         | 59 %   | 52 %   | 46 %   | 43 %        |
+| 3×3 square          | 9.8 %  | 10.4 % | 14.1 % | 16.5 %      |
+| 2×2 square          | 6.0 %  | 7.5 %  | 8.6 %  | 10.1 %      |
+| All rectangles      | 22 %   | 30 %   | 35 %   | 39 %        |
+| Straight lines      | 19 %   | 18 %   | 19 %   | 20 %        |
+| Bent shapes         | 59 %   | 52 %   | 46 %   | 41 %        |
 
 The fuller the board, the more compact rectangles come up and the fewer of the bent shapes.
 Single blocks and the lines of two and three hardly come up at all.
 
 Beyond that, the pieces suit the board they are dealt onto. That showed when the solver
-played the same 2107 boards twice, once with the three pieces the game dealt and once with
+played the same 4285 boards twice, once with the three pieces the game dealt and once with
 pieces drawn at random with the counted frequencies (`DealLab` in the unit tests):
 
-- Every round dealt could be placed completely. Of the drawn rounds one in 130 could not,
-  and on boards with 26 blocks and more one in ten. It is no guarantee, though: a game ended
-  on a board with 43 blocks with a 3×3 square that had no place at all.
-- With the pieces dealt the solver cleared an eighth more lines, and on boards with 16 to 19
-  blocks a fifth more. So the board empties faster than chance would have it.
-- A round that could not clear anything was dealt 18 times, where 15 were to be expected
-  from drawn rounds. In that the game is neither kind nor unkind.
+- Every round dealt could be placed completely. Of the drawn rounds one in 120 could not,
+  and on boards with 26 blocks and more one in twenty. It is no guarantee, though: a game
+  ended on a board with 43 blocks with a 3×3 square that had no place at all.
+- With the pieces dealt the solver cleared a tenth more lines, and on boards with 16 to 19
+  blocks a seventh more. So the board empties faster than chance would have it.
+- A round that could not clear anything was dealt 24 times, where 19 were to be expected
+  from drawn rounds. On the fuller boards the bot has kept since version 0.9.0 it was 6
+  against 2, so the game may deal such rounds on purpose now and then; that is too few to
+  be sure of.
 
 How the game does it is not known. The simulator imitates it: shapes are drawn with the
 frequencies for the board's fill, a round is drawn again until it can be placed, and from a
@@ -307,9 +310,9 @@ app differ in. In 384 simulated games each, of 1500 rounds of three pieces:
 
 | Strategy | Limit | Points per game | Rounds per lost combo | Blocks on the board | Games ended early |
 |----------|-------|-----------------|-----------------------|---------------------|-------------------|
-| Safe     | 5×    | 278 million     | 896                   | 21.8                | 5                 |
-| Balanced | 11×   | 312 million     | 1245                  | 23.9                | 2                 |
-| Risky    | 25×   | 304 million     | 1273                  | 25.5                | 8                 |
+| Safe     | 5×    | 297 million     | 882                   | 21.8                | 3                 |
+| Balanced | 11×   | 320 million     | 1135                  | 23.9                | 5                 |
+| Risky    | 25×   | 309 million     | 1178                  | 25.5                | 12                |
 
 Balanced scores best. Risky keeps the board fuller for no more points, safe gives a combo
 up sooner. The charts are under "Evaluation" below.
@@ -330,6 +333,11 @@ The weights of the board rating were tried against the new simulator one by one,
 about half and at about twice its value. One made a difference beyond chance: an empty cell
 counts half of what it did, which brought 7 % more points. Weighing the shapes to expect
 next by the board's fill, as the game deals them, brought nothing.
+
+A brake for a crowded board was tried too: a penalty that grows with the square of the
+blocks beyond 28, 32, 36 or 40. It cost 3 to 20 % of the points and ended no fewer games,
+so it is not in. The simulator may be the wrong judge of that, though: on the phone 0.24 %
+of the rounds began with more than 43 blocks, in the simulator 0.02 %.
 
 `StrategyLab` in the unit tests is the tool these numbers come from:
 
@@ -384,9 +392,9 @@ python tools/charts.py --lab lab-out --traces captures --deals deals.csv
 
 | Million points after | 100 | 250 | 500  | 1000  | 1500 rounds |
 |----------------------|-----|-----|------|-------|-------------|
-| Safe                 | 1.7 | 10.3 | 38.9 | 138.3 | 278.1      |
-| Balanced             | 1.7 | 10.3 | 40.3 | 148.3 | 312.5      |
-| Risky                | 1.7 | 10.1 | 38.9 | 144.1 | 303.9      |
+| Safe                 | 1.7 | 10.6 | 40.5 | 145.5 | 296.8      |
+| Balanced             | 1.7 | 10.7 | 41.3 | 152.7 | 319.9      |
+| Risky                | 1.7 | 10.5 | 41.0 | 149.2 | 309.2      |
 
 The score grows faster than the rounds, because a clear earns the more the longer the combo
 is and the combo grows with every round. Up to 250 rounds the strategies do not differ;
@@ -418,7 +426,9 @@ Three lines at once are rare and still earn as much as all clears of two lines t
 ![The score of one game on the phone](docs/charts/real-game.svg)
 
 Flat stretches are the beginnings of combos, steep ones long combos. This game was played
-with several versions of the bot, so it is not a clean run of one strategy.
+with several versions of the bot, so it is not a clean run of one strategy: the bend
+upwards at about 130 million points is where a combo became worth three times as much to
+the solver.
 
 ### Simulated and real games
 
@@ -441,23 +451,21 @@ now worth three times as much to it.
 
 ![Blocks on the board by the length of the combo](docs/charts/filled-by-combo.svg)
 
-How full the bot keeps the board depends on what the combo is worth to it. The dots are
-from games on the phone played with the old worth of a combo, the line is simulated with
-the new one, so the line lies higher. With the old worth the simulator kept 14 to 19 blocks
-where the phone had 13 to 20.
+How full the bot keeps the board depends on what the combo is worth to it, so this is a
+check of the simulator. The dots are from 1685 rounds played on the phone since version
+0.9.0, the line is simulated with the same weights.
 
-On the phone the new worth of a combo did what the simulator said it would. In the first
-339 rounds played with it the combo was lost twice, once with pieces that could not clear
-anything, where it had been lost once in 46 rounds before; the board held 20.5 blocks on
-average, where the simulator has 23.9; and the score went from 130 to 180 million.
+In those rounds the combo was lost 8 times, once in 211 rounds, where it had been lost once
+in 57 before, and six of the eight times the pieces could not clear anything. The board
+held 21.8 blocks on average, where the simulator has 23.9. The same shows when the 28 rounds
+that had lost a combo before, although a line could have been cleared, are played again by
+the solver: with the old weights it clears a line in 6 of them, with the new ones in 24.
 
-The same shows when the 28 rounds that lost a combo although a line could have been cleared
-are played again by the solver: with the old weights it clears a line in 6 of them, with
-the new ones in 24.
-
-What the simulator still gets wrong: on the phone a young combo of 5 to 19 pieces was lost
-in one round of 17, in the simulator, with the same solver, in one of 50. So the pieces the
-game deals onto a nearly empty board are harder to clear with than the simulator's.
+What the simulator still gets wrong: it loses its combo once in 1135 rounds, the phone once
+in 211, and the phone's boards are crowded ten times as often. With the old weights a
+young combo of 5 to 19 pieces was lost in one round of 17 on the phone and in one of 50 in
+the simulator. So the game deals rounds that cannot clear anything more often than the
+simulator does, and its points for a long game are too high.
 
 ## Building
 

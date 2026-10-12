@@ -3,8 +3,8 @@ package io.github.andreasscholz.bbbot.game
 import kotlin.random.Random
 
 /**
- * The shapes the game hands out and how often, counted in traces of real games: 6227 pieces in
- * 2117 rounds (see the README). The bot does not depend on this list to recognize pieces; it is
+ * The shapes the game hands out and how often, counted in traces of real games: 12743 pieces in
+ * 4311 rounds (see the README). The bot does not depend on this list to recognize pieces; it is
  * used to judge what a board has to expect and to play simulated games.
  *
  * The game does not draw evenly, and it looks at the board: the fuller it is, the more compact
@@ -19,37 +19,37 @@ object PieceCatalog {
 
     /** Every shape with how often it was dealt onto a board with 0 to 9, 10 to 14, 15 to 19 and 20 or more blocks. */
     private val counted: List<Pair<Piece, IntArray>> = listOf(
-        Piece.of("XXX", "XXX", "XXX") to intArrayOf(127, 168, 250, 221),
-        Piece.of("XX", "XX") to intArrayOf(74, 118, 144, 166),
-        Piece.of("X", "X", "X", "X") to intArrayOf(95, 115, 123, 116),
-        Piece.of("XXX", "XXX") to intArrayOf(41, 89, 117, 91),
-        Piece.of("XX", "XX", "XX") to intArrayOf(38, 106, 87, 93),
-        Piece.of("XXXXX") to intArrayOf(48, 72, 92, 73),
-        Piece.of("XXXX") to intArrayOf(45, 70, 80, 67),
-        Piece.of("X", "X", "X", "X", "X") to intArrayOf(53, 64, 53, 61),
-        Piece.of("X..", "XXX") to intArrayOf(57, 56, 50, 54),
-        Piece.of(".XX", "XX.") to intArrayOf(62, 50, 46, 51),
-        Piece.of(".X.", "XXX") to intArrayOf(49, 50, 51, 51),
-        Piece.of("X.", "XX", ".X") to intArrayOf(41, 56, 45, 44),
-        Piece.of("X.", "XX", "X.") to intArrayOf(39, 54, 54, 35),
-        Piece.of("XX.", ".XX") to intArrayOf(38, 53, 48, 42),
-        Piece.of(".X", "XX", ".X") to intArrayOf(40, 50, 47, 33),
-        Piece.of("XXX", "..X") to intArrayOf(38, 61, 34, 35),
-        Piece.of(".X", "XX", "X.") to intArrayOf(52, 49, 30, 35),
-        Piece.of("XX", "X.", "X.") to intArrayOf(37, 47, 47, 33),
-        Piece.of("X..", "X..", "XXX") to intArrayOf(43, 36, 45, 31),
-        Piece.of("XXX", "X..", "X..") to intArrayOf(47, 37, 45, 26),
-        Piece.of("XXX", "..X", "..X") to intArrayOf(37, 40, 45, 32),
-        Piece.of(".X", ".X", "XX") to intArrayOf(31, 43, 47, 28),
-        Piece.of("XXX", ".X.") to intArrayOf(48, 39, 33, 27),
-        Piece.of("..X", "..X", "XXX") to intArrayOf(39, 35, 36, 29),
-        Piece.of("XX", ".X", ".X") to intArrayOf(25, 26, 22, 15),
-        Piece.of("..X", "XXX") to intArrayOf(11, 19, 22, 27),
-        Piece.of("XXX", "X..") to intArrayOf(4, 29, 23, 17),
-        Piece.of("X.", "X.", "XX") to intArrayOf(5, 22, 16, 21),
+        Piece.of("XXX", "XXX", "XXX") to intArrayOf(146, 239, 472, 923),
+        Piece.of("XX", "XX") to intArrayOf(90, 171, 288, 566),
+        Piece.of("X", "X", "X", "X") to intArrayOf(115, 155, 229, 366),
+        Piece.of("XXX", "XXX") to intArrayOf(49, 132, 221, 363),
+        Piece.of("XX", "XX", "XX") to intArrayOf(47, 149, 185, 346),
+        Piece.of("XXXXX") to intArrayOf(52, 84, 146, 293),
+        Piece.of("XXXX") to intArrayOf(49, 90, 147, 222),
+        Piece.of("X", "X", "X", "X", "X") to intArrayOf(67, 85, 119, 218),
+        Piece.of("X..", "XXX") to intArrayOf(61, 83, 102, 187),
+        Piece.of(".XX", "XX.") to intArrayOf(69, 69, 95, 163),
+        Piece.of(".X.", "XXX") to intArrayOf(62, 68, 104, 150),
+        Piece.of("X.", "XX", ".X") to intArrayOf(51, 74, 89, 143),
+        Piece.of("X.", "XX", "X.") to intArrayOf(48, 70, 98, 138),
+        Piece.of("XX.", ".XX") to intArrayOf(50, 67, 93, 128),
+        Piece.of(".X", "XX", ".X") to intArrayOf(45, 73, 100, 125),
+        Piece.of("XXX", "..X") to intArrayOf(41, 81, 82, 112),
+        Piece.of(".X", "XX", "X.") to intArrayOf(58, 71, 71, 131),
+        Piece.of("XX", "X.", "X.") to intArrayOf(43, 61, 80, 103),
+        Piece.of("X..", "X..", "XXX") to intArrayOf(55, 50, 71, 102),
+        Piece.of("XXX", "X..", "X..") to intArrayOf(56, 51, 78, 97),
+        Piece.of("XXX", "..X", "..X") to intArrayOf(41, 52, 84, 116),
+        Piece.of(".X", ".X", "XX") to intArrayOf(38, 65, 91, 116),
+        Piece.of("XXX", ".X.") to intArrayOf(60, 57, 59, 120),
+        Piece.of("..X", "..X", "XXX") to intArrayOf(48, 52, 63, 94),
+        Piece.of("XX", ".X", ".X") to intArrayOf(25, 37, 46, 65),
+        Piece.of("..X", "XXX") to intArrayOf(12, 21, 38, 69),
+        Piece.of("XXX", "X..") to intArrayOf(5, 37, 46, 67),
+        Piece.of("X.", "X.", "XX") to intArrayOf(8, 32, 37, 62),
         // The diagonals are rare, and came up more often this way round.
-        Piece.of("..X", ".X.", "X..") to intArrayOf(4, 8, 1, 2),
-        Piece.of("X..", ".X.", "..X") to intArrayOf(1, 2, 4, 1),
+        Piece.of("..X", ".X.", "X..") to intArrayOf(4, 12, 12, 12),
+        Piece.of("X..", ".X.", "..X") to intArrayOf(1, 4, 5, 7),
     )
 
     val all: List<Piece> = counted.map { it.first }

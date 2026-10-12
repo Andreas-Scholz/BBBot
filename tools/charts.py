@@ -208,7 +208,7 @@ def trace_charts(folder, out):
     chart.save(out, 'real-game.svg')
 
 
-def deal_charts(deals, lab, out):
+def deal_charts(deals, lab, out, since):
     rows = table(deals)
     bounds = [0, 8, 12, 16, 20, 26, 65]
     chart = Chart('Lines the solver clears per round on the same boards', len(bounds) - 0.4, 3.4, [], [0, 1, 2, 3],
@@ -233,7 +233,7 @@ def deal_charts(deals, lab, out):
     real = []
     for index, edge in enumerate(edges):
         upper = edges[index + 1] if index + 1 < len(edges) else 10 ** 9
-        part = [int(row['filled']) for row in rows if edge <= int(row['combo']) < upper]
+        part = [int(row['filled']) for row in rows if edge <= int(row['combo']) < upper and row['trace'] >= since]
         if part:
             real.append((index + 1, sum(part) / len(part)))
         chart.tick(index + 1, f'{edge}–{upper - 1}' if index + 1 < len(edges) else f'{edge} and more')
@@ -248,6 +248,7 @@ def main():
     parser.add_argument('--lab', type=Path)
     parser.add_argument('--traces', type=Path)
     parser.add_argument('--deals', type=Path)
+    parser.add_argument('--since', default='', help='the first trace played with the weights the lab used, for the chart that compares the two')
     parser.add_argument('--out', type=Path, default=Path(__file__).resolve().parent.parent / 'docs' / 'charts')
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
@@ -256,7 +257,7 @@ def main():
     if args.traces:
         trace_charts(args.traces, args.out)
     if args.deals:
-        deal_charts(args.deals, args.lab, args.out)
+        deal_charts(args.deals, args.lab, args.out, args.since)
 
 
 if __name__ == '__main__':

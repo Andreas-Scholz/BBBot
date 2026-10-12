@@ -39,8 +39,8 @@ class BoardTest {
         val random = kotlin.random.Random(1)
         val draws = 20_000
         val squares = (1..draws).count { PieceCatalog.random(random) == Piece.of("XXX", "XXX", "XXX") }
-        // The 3×3 square is one piece in eight.
-        assertEquals(0.118, squares / draws.toDouble(), 0.01)
+        // The 3×3 square is nearly one piece in seven, over all boards.
+        assertEquals(0.136, squares / draws.toDouble(), 0.01)
     }
 
     @Test

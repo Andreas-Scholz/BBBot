@@ -53,17 +53,17 @@ class BotService : AccessibilityService() {
 
     /** Whether the user has put the panel away. */
     private var hidden = false
-
-    /** The longest the combo has been in the current run. */
-    private var longestCombo = 0
     private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
 
     override fun onServiceConnected() {
         screenCapture = ScreenCapture(this)
         captureStore = CaptureStore(this)
         overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshotOnRequest, onHide = ::hidePanel)
-        overlay.setStatus(getString(R.string.overlay_ready))
         settings = BotSettings(this)
+        val combo = settings.savedCombo
+        overlay.setStatus(
+            if (combo == null) getString(R.string.overlay_ready) else getString(R.string.overlay_ready_combo, combo.length, combo.longest),
+        )
         gameLog = GameLog(this)
         mutableConnected.value = true
     }
@@ -114,9 +114,8 @@ class BotService : AccessibilityService() {
         strategy = settings.strategy
         val solver = Solver(HeuristicEvaluator(strategy.weights))
         val trace = Trace(this)
-        val player = Player(screenCapture, Finger(this), captureStore, solver, trace, settings, onStatus = ::showStatus, gameInFront = { !covered }, onGameSeen = { covered = false })
+        val player = Player(screenCapture, Finger(this), captureStore, solver, trace, settings, onStatus = ::showStatus, gameInFront = { !covered }, onGameSeen = { covered = false }, panel = { overlay.area })
         firstScore = null
-        longestCombo = 0
         lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
         showStatus(lastStatus)
         overlay.setPlaying(true)
@@ -158,7 +157,7 @@ class BotService : AccessibilityService() {
                 // strategy that played it.
                 val file = saveScreenshot("${CaptureStore.FINAL_PREFIX}-${played.name.lowercase()}")
                 log("no_room", file.name)
-                overlay.setStatus(getString(R.string.overlay_no_move, lastStatus.moves))
+                overlay.setStatus(getString(R.string.overlay_no_move, lastStatus.combo, lastStatus.longest))
                 // What the game shows when it is over is not known yet. A few pictures of what
                 // follows are kept, to teach the bot to start a new game by itself one day.
                 repeat(AFTER_PICTURES) {
@@ -166,12 +165,12 @@ class BotService : AccessibilityService() {
                     if (!covered) saveScreenshot("after")
                 }
             } catch (e: CancellationException) {
-                overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.lines, longestCombo))
+                overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.combo, lastStatus.longest))
                 withContext(NonCancellable) { log("stopped", "") }
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Playing failed", e)
-                overlay.setStatus(getString(R.string.overlay_error))
+                overlay.setStatus(getString(R.string.overlay_error, lastStatus.combo, lastStatus.longest))
             } finally {
                 overlay.setPlaying(false)
             }
@@ -185,16 +184,16 @@ class BotService : AccessibilityService() {
 
     private fun showStatus(status: PlayStatus) {
         lastStatus = status
-        longestCombo = maxOf(longestCombo, status.combo)
         if (status.score != null) {
             if (firstScore == null) firstScore = status.score
             lastScore = status.score
         }
         val text = when (status.state) {
             PlayStatus.State.PLAYING ->
-                getString(R.string.overlay_playing, status.moves, status.lines, getString(strategy.label), status.combo, longestCombo)
-            PlayStatus.State.NO_GAME -> getString(R.string.overlay_no_game, status.moves)
-            PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.moves)
+                getString(R.string.overlay_playing, status.moves, getString(strategy.label), status.combo, status.longest)
+            PlayStatus.State.NO_GAME -> getString(R.string.overlay_no_game, status.combo, status.longest)
+            PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.combo, status.longest)
+            PlayStatus.State.PANEL_IN_THE_WAY -> getString(R.string.overlay_panel_in_the_way)
         }
         overlay.setStatus(text)
     }

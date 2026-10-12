@@ -363,6 +363,40 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `is not disturbed by the panel where it lies on the background`() {
+        val expected = reader.read(load("wood-start.png"))!!
+        // Dragged into the lower part of the strip in which the pieces are looked for.
+        val area = ScreenArea(left = 120, top = 2040, right = 850, bottom = 2165)
+        val shot = withPanel(load("wood-start.png"), area)
+        val reading = ScreenReader().apply { panel = area }
+
+        shot.paintOver(area)
+        val screen = reading.read(shot)!!
+
+        assertEquals(expected.board, screen.board)
+        assertEquals(expected.tray.map { it.piece }, screen.tray.map { it.piece })
+    }
+
+    @Test
+    fun `reads nothing while the panel lies on the pieces`() {
+        val area = ScreenArea(left = 120, top = 1750, right = 850, bottom = 1875)
+        val shot = withPanel(load("wood-start.png"), area)
+        var reason = ""
+        val reading = ScreenReader(onReject = { reason = it }).apply { panel = area }
+
+        shot.paintOver(area)
+
+        assertNull(reading.read(shot))
+        assertEquals(PANEL_COVERS_GAME, reason)
+    }
+
+    /** [shot] with something dark where the panel would be. */
+    private fun withPanel(shot: Screenshot, area: ScreenArea): Screenshot {
+        for (y in area.top..area.bottom) shot.pixels.fill(0xFF22263A.toInt(), y * shot.width + area.left, y * shot.width + area.right + 1)
+        return shot
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

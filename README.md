@@ -51,8 +51,11 @@ screenshot ──► recognition ──► solver ──► gestures
    screen, between the pieces and the banner ad, and disappears when the game is left. It
    can be dragged by its text. The bot does nothing until its play button is pressed, so
    the game can be played by hand with the panel there. The cross at its end puts the panel
-   away until the game is opened the next time. While the bot plays, the panel shows how
-   long the combo is and the longest it has been in this run.
+   away until the game is opened the next time. The panel shows how long the combo is and
+   the longest it has been in this game, also while the bot is stopped or cannot see the
+   game; both are kept across runs. The bot takes the panel out of every picture of the
+   screen before reading it, so the panel may lie anywhere on the background. Dragged onto
+   the board or the pieces it would hide blocks; the bot then waits and says so.
 4. Choose in the app how the bot should play: safe, balanced or risky (see "Strategies").
    The choice applies the next time the bot is started.
 5. Press the play button in the panel. The bot plays until it is stopped with the same

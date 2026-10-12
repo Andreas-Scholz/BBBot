@@ -19,7 +19,7 @@ class SimulatorTest {
         println("rounds per game: ${results.map { it.rounds }} (average $averageRounds of $maxRounds)")
         println("lines per round: ${results.sumOf { it.linesCleared } / results.sumOf { it.rounds }.toDouble()}")
 
-        // A bad round can end any game early; the default weights reach about 200 on average.
+        // The game deals rounds that can be placed whenever it finds one, so games rarely end.
         assertTrue("average of $averageRounds rounds is too low", averageRounds >= 120)
     }
 

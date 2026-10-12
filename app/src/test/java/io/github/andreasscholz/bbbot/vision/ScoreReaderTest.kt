@@ -28,6 +28,11 @@ class ScoreReaderTest {
     }
 
     @Test
+    fun `reads digits that are shaded from white to grey`() {
+        assertEquals(188650199L, ScoreReader.read(screenWith("188650199.png")))
+    }
+
+    @Test
     fun `gives no score rather than a doubtful one`() {
         // Caught while the digit was still growing into place, it matches its pattern badly.
         val read = ScoreReader.read(screenWith("4.png"))

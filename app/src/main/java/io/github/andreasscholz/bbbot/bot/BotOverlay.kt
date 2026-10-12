@@ -35,7 +35,7 @@ class BotOverlay(private val service: AccessibilityService, onToggle: () -> Unit
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         PixelFormat.TRANSLUCENT,
     ).apply {
-        gravity = Gravity.TOP or Gravity.START
+        gravity = Gravity.BOTTOM or Gravity.START
         val density = service.resources.displayMetrics.density
         x = (START_X_DP * density).toInt()
         y = (START_Y_DP * density).toInt()
@@ -94,7 +94,8 @@ class BotOverlay(private val service: AccessibilityService, onToggle: () -> Unit
                     if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) dragging = true
                     if (dragging && isShown) {
                         params.x = startX + dx.toInt()
-                        params.y = startY + dy.toInt()
+                        // The panel hangs from the bottom of the screen, so its y counts upwards.
+                        params.y = startY - dy.toInt()
                         windowManager.updateViewLayout(root, params)
                     }
                 }
@@ -105,7 +106,8 @@ class BotOverlay(private val service: AccessibilityService, onToggle: () -> Unit
 
     private companion object {
         const val START_X_DP = 8
-        // High enough to leave the score and the symbol behind it uncovered.
-        const val START_Y_DP = 0
+        // From the bottom of the screen: in the strip between the pieces offered and the
+        // banner ad, where it covers nothing the bot reads or the player needs.
+        const val START_Y_DP = 66
     }
 }

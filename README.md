@@ -47,8 +47,10 @@ screenshot ──► recognition ──► solver ──► gestures
 2. Switch on "BBBot" in the accessibility settings; the app has a button that leads there.
    The service takes screenshots and performs gestures. It does not read the contents of
    other apps, and the app has no internet permission.
-3. Open Block Blast and start a game. A small BBBot panel appears on top of the game and
-   disappears when the game is left. It can be dragged by its text.
+3. Open Block Blast and start a game. A small BBBot panel appears at the bottom of the
+   screen, between the pieces and the banner ad, and disappears when the game is left. It
+   can be dragged by its text. The bot does nothing until its play button is pressed, so
+   the game can be played by hand with the panel there.
 4. Choose in the app how the bot should play: safe, balanced or risky (see "Strategies").
    The choice applies the next time the bot is started.
 5. Press the play button in the panel. The bot plays until it is stopped with the same

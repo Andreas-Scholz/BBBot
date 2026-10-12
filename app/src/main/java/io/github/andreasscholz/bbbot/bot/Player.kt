@@ -482,15 +482,21 @@ class Player(
     private companion object {
         const val TAG = "BBBot"
 
+        // How long a drag takes. Not to be shortened: with half these times three pieces in 130
+        // landed beside their place, and one of them cost a combo of 641.
         const val PRESS_MS = 60L
         const val DRAG_BASE_MS = 120L
         const val DRAG_MS_PER_CELL = 40f
         const val HOLD_MS = 120L
 
-        /** Waiting times after a piece was dropped, without and with lines being cleared. */
-        const val SETTLE_MS = 150L
-        const val CLEAR_MS = 450L
-        const val RETRY_MS = 300L
+        /**
+         * Waiting times after a piece was dropped, without and with lines being cleared, and
+         * before another look when the screen was not ready. Looking too early costs nothing
+         * but another look, so these are as short as still saves looks.
+         */
+        const val SETTLE_MS = 100L
+        const val CLEAR_MS = 350L
+        const val RETRY_MS = 150L
 
         /** Share of the combo symbol above which a combo is running beyond doubt, in any theme. */
         const val COMBO_CLEARLY_RUNNING = 0.1f

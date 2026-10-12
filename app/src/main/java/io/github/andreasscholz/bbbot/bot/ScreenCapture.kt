@@ -61,7 +61,8 @@ class ScreenCapture(private val service: AccessibilityService) {
     }
 
     private companion object {
-        const val MIN_INTERVAL_MS = 400L
+        /** Android allows a screenshot every third of a second. */
+        const val MIN_INTERVAL_MS = 340L
         const val ERROR_NO_BITMAP = -1
     }
 }

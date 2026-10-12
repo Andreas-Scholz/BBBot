@@ -31,8 +31,8 @@ class StrategyLab {
         assumeTrue("BBBOT_LAB is not set", System.getenv("BBBOT_LAB") != null)
 
         println(
-            "LAB %-22s %7s %7s %7s %6s %10s %10s %9s %7s"
-                .format("", "rounds", "worst10", "median", "alive", "score", "best10", "per round", "combo"),
+            "LAB %-22s %7s %7s %7s %6s %10s %10s %9s %7s %6s %7s %7s"
+                .format("", "rounds", "worst10", "median", "alive", "score", "best10", "per round", "combo", "ended", "over 35", "over 43"),
         )
         for ((name, weights) in candidates()) run(name, weights)
     }
@@ -51,7 +51,7 @@ class StrategyLab {
         val scores = results.map { it.score }.sorted()
         // worst10 and best10: one game in ten ends earlier, one game in ten scores higher.
         println(
-            "LAB %-22s %7.1f %7d %7d %5.0f%% %10.0f %10d %9.1f %7.1f".format(
+            "LAB %-22s %7.1f %7d %7d %5.0f%% %10.0f %10d %9.1f %7.1f %6d %6.2f%% %6.3f%%".format(
                 name,
                 rounds.average(),
                 rounds[rounds.size / 10],
@@ -61,6 +61,10 @@ class StrategyLab {
                 scores[scores.size * 9 / 10],
                 results.sumOf { it.score } / rounds.sum().toDouble(),
                 results.map { it.longestCombo }.average(),
+                // Games that ended early, and the share of rounds that began on a crowded board.
+                rounds.count { it < maxRounds },
+                100.0 * results.sumOf { result -> result.filledByRound.count { it > 35 } } / results.sumOf { it.filledByRound.size },
+                100.0 * results.sumOf { result -> result.filledByRound.count { it > 43 } } / results.sumOf { it.filledByRound.size },
             ),
         )
         out?.let { write(it, name.replace(' ', '-'), results) }

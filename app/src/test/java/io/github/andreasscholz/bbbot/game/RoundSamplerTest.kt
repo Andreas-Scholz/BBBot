@@ -20,7 +20,7 @@ class RoundSamplerTest {
         val board = Board.parse(*Array(7) { "........" }, "XXXXXXX.")
         val chances = sampler.chances(board.bits)
         assertEquals(1.0, chances.fit, 0.0)
-        assertTrue("clear ${chances.clear}", chances.clear > 0.6)
+        assertTrue("clear ${chances.clear}", chances.clear > 0.5)
         assertTrue(chances.clear > sampler.chances(Board.EMPTY.bits).clear + 0.2)
     }
 

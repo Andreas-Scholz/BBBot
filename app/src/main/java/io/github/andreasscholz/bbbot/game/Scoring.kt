@@ -1,22 +1,37 @@
 package io.github.andreasscholz.bbbot.game
 
 /**
- * What the game pays for a clear, as far as it was measured in traces of real games (see the
- * README): a clear of one line earns an amount that grows by a fixed step with every piece that
- * cleared something since the combo began. Two lines at once earn exactly twice that, three
- * lines six times. Four and more were not seen yet; they are taken to go on as 12, 20 and 30.
+ * What the game pays for a clear, as measured in traces of real games (see the README).
+ *
+ * A clear of one line earns the length of the combo, counted in pieces that cleared something
+ * since it began, times a step that depends on that length. Two lines at once earn exactly
+ * twice that, three lines six times, four about 14.4 times (seen twice) and five about 20 times
+ * (seen once). Six were not seen and are taken to go on as 30. A piece that empties the board
+ * earns a fixed bonus on top, whatever the combo; nothing changes for the clears after it.
  */
 object Scoring {
 
-    /**
-     * The points a single line earns per piece that cleared something since the combo began, as
-     * measured in two traces of one game: 76.10 both times, with 80 clears within a point of it.
-     * Where the number comes from is not known, and another game may have another.
-     */
-    const val STEP = 76.1
+    /** What a piece earns on top of its clear for leaving the board empty. */
+    const val EMPTIED_BOARD = 300
 
-    private val WORTH = intArrayOf(0, 1, 2, 6, 12, 20, 30)
+    private val WORTH = doubleArrayOf(0.0, 1.0, 2.0, 6.0, 14.4, 20.0, 30.0)
 
     /** How many single lines a clear of [lines] lines at once is worth. */
-    fun worth(lines: Int): Int = WORTH[lines.coerceIn(0, WORTH.lastIndex)]
+    fun worth(lines: Int): Double = WORTH[lines.coerceIn(0, WORTH.lastIndex)]
+
+    /**
+     * The points a single line earns per piece of the combo, for a combo of [comboLength] pieces
+     * including the clearing one. Measured at the start of two combos of one game: 50 for the
+     * first five pieces, 75 for the next five, 100 from the eleventh on, where it stayed for
+     * hundreds of clears. An earlier game paid 76 for a long combo; why is not known.
+     */
+    fun step(comboLength: Int): Int = when {
+        comboLength <= 5 -> 50
+        comboLength <= 10 -> 75
+        else -> 100
+    }
+
+    /** The points for clearing [lines] lines with the piece that makes the combo [comboLength] long. */
+    fun clear(lines: Int, comboLength: Int, emptiedBoard: Boolean): Long =
+        Math.round(worth(lines) * step(comboLength) * comboLength) + if (emptiedBoard) EMPTIED_BOARD else 0
 }

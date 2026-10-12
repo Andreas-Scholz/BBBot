@@ -34,11 +34,12 @@ data class Weights(
      */
     val clearingPiece: Double = 3.0,
     /**
-     * For a piece that empties the board. In the game a line earned about a third more per step
-     * of the combo after the board had been emptied a few times; how exactly is being measured,
-     * and until then this is set to make it happen often enough to measure.
+     * For a piece that empties the board. The game pays a fixed 300 points for it (see
+     * [Scoring]), which is next to nothing beside a clear in a long combo, and in simulated
+     * games no reward or penalty between -25 and 250 made a difference that could be told from
+     * chance. So it is left to the rating of the board, which likes an empty one anyway.
      */
-    val emptiedBoard: Double = 250.0,
+    val emptiedBoard: Double = 0.0,
     /**
      * What a combo is worth when it begins, as a loss when it ends. The more a combo counts,
      * the more of the board's good shape is given up to keep clearing lines.

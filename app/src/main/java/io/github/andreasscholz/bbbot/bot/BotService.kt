@@ -50,12 +50,18 @@ class BotService : AccessibilityService() {
      */
     @Volatile
     private var covered = false
+
+    /** Whether the user has put the panel away. */
+    private var hidden = false
+
+    /** The longest the combo has been in the current run. */
+    private var longestCombo = 0
     private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
 
     override fun onServiceConnected() {
         screenCapture = ScreenCapture(this)
         captureStore = CaptureStore(this)
-        overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshotOnRequest)
+        overlay = BotOverlay(this, onToggle = ::togglePlaying, onCapture = ::saveScreenshotOnRequest, onHide = ::hidePanel)
         overlay.setStatus(getString(R.string.overlay_ready))
         settings = BotSettings(this)
         gameLog = GameLog(this)
@@ -67,7 +73,7 @@ class BotService : AccessibilityService() {
         when (event.packageName?.toString()) {
             GAME_PACKAGE -> {
                 covered = false
-                overlay.show()
+                if (!hidden) overlay.show()
             }
             // The notification shade, the lock screen and the like. They lie on top of the game
             // without it going away, and nothing tells when they are gone again.
@@ -78,6 +84,8 @@ class BotService : AccessibilityService() {
                 // Never touch the screen of anything but the game.
                 stopPlaying()
                 overlay.hide()
+                // A panel that was put away is back the next time the game is opened.
+                hidden = false
             }
         }
     }
@@ -91,6 +99,13 @@ class BotService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
+    /** Puts the panel away for as long as the game stays in front; the bot does not play without it. */
+    private fun hidePanel() {
+        stopPlaying()
+        hidden = true
+        overlay.hide()
+    }
+
     private fun togglePlaying() {
         if (playing?.isActive == true) stopPlaying() else startPlaying()
     }
@@ -101,6 +116,7 @@ class BotService : AccessibilityService() {
         val trace = Trace(this)
         val player = Player(screenCapture, Finger(this), captureStore, solver, trace, settings, onStatus = ::showStatus, gameInFront = { !covered }, onGameSeen = { covered = false })
         firstScore = null
+        longestCombo = 0
         lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
         showStatus(lastStatus)
         overlay.setPlaying(true)
@@ -150,7 +166,7 @@ class BotService : AccessibilityService() {
                     if (!covered) saveScreenshot("after")
                 }
             } catch (e: CancellationException) {
-                overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.lines))
+                overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.lines, longestCombo))
                 withContext(NonCancellable) { log("stopped", "") }
                 throw e
             } catch (e: Exception) {
@@ -169,13 +185,14 @@ class BotService : AccessibilityService() {
 
     private fun showStatus(status: PlayStatus) {
         lastStatus = status
+        longestCombo = maxOf(longestCombo, status.combo)
         if (status.score != null) {
             if (firstScore == null) firstScore = status.score
             lastScore = status.score
         }
         val text = when (status.state) {
             PlayStatus.State.PLAYING ->
-                getString(R.string.overlay_playing, status.moves, status.lines, getString(strategy.label))
+                getString(R.string.overlay_playing, status.moves, status.lines, getString(strategy.label), status.combo, longestCombo)
             PlayStatus.State.NO_GAME -> getString(R.string.overlay_no_game, status.moves)
             PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.moves)
         }
@@ -204,7 +221,7 @@ class BotService : AccessibilityService() {
             delay(PANEL_HIDE_MS)
             return captureStore.save(screenCapture.capture(), prefix)
         } finally {
-            overlay.show()
+            if (!hidden) overlay.show()
         }
     }
 

@@ -28,11 +28,12 @@
     <string name="overlay_ready">BBBot ist bereit</string>
     <string name="overlay_start">Spielen starten</string>
     <string name="overlay_stop">Spielen stoppen</string>
-    <string name="overlay_stopped">Gestoppt · Züge: %1$d · Reihen: %2$d</string>
-    <string name="overlay_playing">%3$s · Züge: %1$d · Reihen: %2$d</string>
+    <string name="overlay_stopped">Gestoppt · Züge %1$d\nLängste Combo %3$d · Reihen %2$d</string>
+    <string name="overlay_playing">Combo %4$d · max. %5$d\n%3$s · Züge %1$d</string>
     <string name="overlay_no_game">Kein Spiel zu sehen · Züge: %1$d</string>
     <string name="overlay_no_move">Kein Platz für alle Steine · Züge: %1$d · Screenshot gespeichert</string>
     <string name="overlay_error">Durch einen Fehler gestoppt</string>
+    <string name="overlay_hide">Leiste ausblenden</string>
     <string name="overlay_capture">Screenshot speichern</string>
     <string name="overlay_saved">%1$s gespeichert</string>
     <string name="overlay_capture_failed">Screenshot fehlgeschlagen</string>

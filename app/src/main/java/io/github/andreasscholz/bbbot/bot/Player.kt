@@ -20,7 +20,8 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 /** What the bot is doing, for the panel. */
-data class PlayStatus(val state: State, val moves: Int, val lines: Int, val score: Long? = null) {
+/** [combo] is the number of pieces that cleared something since the combo began, as the bot counts it. */
+data class PlayStatus(val state: State, val moves: Int, val lines: Int, val score: Long? = null, val combo: Int = 0) {
     enum class State {
         /** Pieces are being placed. */
         PLAYING,
@@ -308,7 +309,7 @@ class Player(
                 // those are always waited for; the trace then tells.
                 val waitForScore = measure || result.linesCleared >= 4
 
-                onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score))
+                onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score, combo = maxOf(comboLength, 0)))
                 trace.add(
                     shot,
                     TraceStep(

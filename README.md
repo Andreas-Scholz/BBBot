@@ -149,10 +149,15 @@ shows the board it expects, or until two looks in a row agree, so that it does n
 a board whose lines are still vanishing. A piece that slipped back into the tray is simply
 tried again on the next turn.
 
+When the pieces offered no longer all fit, the bot stops and places nothing more, also not
+what would still fit: the last pieces are left to the user. With "Endless" switched on in
+the app it places what still fits instead, which ends the game, and goes on as soon as it
+sees a game again. It does not get there by itself yet: what the game shows between two
+games, ads among it, is not known, so for now the bot keeps pictures of it (`after-…`) and
+taps nothing there.
+
 When the game was started anew and waits in its main menu, the bot taps "Classic" to go on
-with the game. That is the only thing it taps that is not a piece: it leaves ads alone, and
-what the game shows when it is over is not known yet, so the bot stops there and keeps a
-picture every five seconds for a while (`after-…`), to learn from.
+with the game. That is the only thing it taps that is not a piece.
 
 While the notification shade, the lock screen or anything else of the system may lie on top
 of the game, the bot keeps no picture of the screen and taps nothing. It goes on when it
@@ -278,12 +283,12 @@ app differ in. In 384 simulated games each, of 1500 rounds of three pieces:
 
 | Strategy | Limit | Points per game | Rounds per lost combo | Blocks on the board | Games ended early |
 |----------|-------|-----------------|-----------------------|---------------------|-------------------|
-| Safe     | 5×    | 236 million     | 625                   | 20.2                | 0                 |
-| Balanced | 11×   | 287 million     | 925                   | 22.6                | 6                 |
-| Risky    | 25×   | 288 million     | 1014                  | 24.3                | 12                |
+| Safe     | 5×    | 278 million     | 896                   | 21.8                | 5                 |
+| Balanced | 11×   | 312 million     | 1245                  | 23.9                | 2                 |
+| Risky    | 25×   | 304 million     | 1273                  | 25.5                | 8                 |
 
-Balanced scores as much as risky and loses half as many games. Safe keeps the board
-emptiest and gives a combo up sooner. The charts are under "Evaluation" below.
+Balanced scores best. Risky keeps the board fuller for no more points, safe gives a combo
+up sooner. The charts are under "Evaluation" below.
 
 A combo is worth three times what it was until version 0.8.5. That came out of the
 simulator dealing its pieces the way the game does: such a game hardly ever ends, so a
@@ -296,6 +301,11 @@ limit. In 288 games each of 1000 rounds:
 | Million points        | 38 | 71 | 100 | 121 | 133 | 139 | 134 | 138  |
 
 Up to 0.8.5 balanced stood at 110; it is now at 330, where the gain levels off.
+
+The weights of the board rating were tried against the new simulator one by one, each at
+about half and at about twice its value. One made a difference beyond chance: an empty cell
+counts half of what it did, which brought 7 % more points. Weighing the shapes to expect
+next by the board's fill, as the game deals them, brought nothing.
 
 `StrategyLab` in the unit tests is the tool these numbers come from:
 
@@ -349,9 +359,9 @@ python tools/charts.py --lab lab-out --traces captures --deals deals.csv
 
 | Million points after | 100 | 250 | 500  | 1000  | 1500 rounds |
 |----------------------|-----|-----|------|-------|-------------|
-| Safe                 | 1.6 | 9.8 | 35.8 | 121.5 | 236.2       |
-| Balanced             | 1.6 | 9.8 | 37.9 | 139.7 | 287.4       |
-| Risky                | 1.6 | 9.8 | 37.9 | 138.3 | 288.0       |
+| Safe                 | 1.7 | 10.3 | 38.9 | 138.3 | 278.1      |
+| Balanced             | 1.7 | 10.3 | 40.3 | 148.3 | 312.5      |
+| Risky                | 1.7 | 10.1 | 38.9 | 144.1 | 303.9      |
 
 The score grows faster than the rounds, because a clear earns the more the longer the combo
 is and the combo grows with every round. Up to 250 rounds the strategies do not differ;
@@ -410,6 +420,11 @@ How full the bot keeps the board depends on what the combo is worth to it. The d
 from games on the phone played with the old worth of a combo, the line is simulated with
 the new one, so the line lies higher. With the old worth the simulator kept 14 to 19 blocks
 where the phone had 13 to 20.
+
+On the phone the new worth of a combo did what the simulator said it would. In the first
+339 rounds played with it the combo was lost twice, once with pieces that could not clear
+anything, where it had been lost once in 46 rounds before; the board held 20.5 blocks on
+average, where the simulator has 23.9; and the score went from 130 to 180 million.
 
 What the simulator still gets wrong: on the phone a young combo of 5 to 19 pieces was lost
 in one round of 17, in the simulator, with the same solver, in one of 50. So the pieces the

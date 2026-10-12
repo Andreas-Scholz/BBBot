@@ -117,6 +117,11 @@ class BotService : AccessibilityService() {
             screenshot = screenshot,
             trace = trace.name,
         )
+        // In endless play the run goes on after a game is over, so the game is put on record here.
+        player.onGameOver = {
+            val file = saveScreenshot("${CaptureStore.FINAL_PREFIX}-${played.name.lowercase()}")
+            log("no_room", file.name)
+        }
         playing = scope.launch {
             try {
                 player.play()

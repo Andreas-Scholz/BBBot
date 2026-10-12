@@ -340,6 +340,29 @@ class ScreenReaderTest {
     }
 
     @Test
+    fun `is not misled by a banner ad that reaches the left edge of the screen`() {
+        // The white banner at the bottom was taken for rough background, and with that much
+        // roughness allowed the red pieces passed for background too.
+        val screen = reader.read(load("cookies-banner-at-the-edge.png"))!!
+
+        assertEquals(
+            Board.parse(
+                "......XX",
+                "........",
+                ".X......",
+                "........",
+                "........",
+                "...XXXXX",
+                "...X.XXX",
+                ".....XXX",
+            ),
+            screen.board,
+        )
+        val square = Piece.of("XXX", "XXX", "XXX")
+        assertEquals(listOf(square, square, Piece.of(".X", "XX")), screen.tray.map { it.piece })
+    }
+
+    @Test
     fun `reads the same game in other colors`() {
         // The colors change with the theme of the game; swapping the channels imitates another one.
         val original = load("wood-start.png")

@@ -141,7 +141,10 @@ class ScreenReader(
         }
 
         init {
-            val distances = IntArray((shot.height - TEXTURE_REACH) / TEXTURE_STEP) {
+            // The bottom of the screen is left out: a banner ad that reaches the edge there is no
+            // background, and its sharp border would be taken for a very rough texture.
+            val rows = (shot.height * TEXTURE_BOTTOM).toInt()
+            val distances = IntArray((rows - TEXTURE_REACH) / TEXTURE_STEP) {
                 val y = it * TEXTURE_STEP
                 distance(shot[EDGE_X - 2, y], shot[EDGE_X + 2, y + TEXTURE_REACH])
             }
@@ -453,6 +456,8 @@ class ScreenReader(
         const val EDGE_REACH = 8
 
         // The texture of the background is judged by pixels this far apart, every few rows.
+        /** How far down the screen the texture is judged, as a fraction of its height. */
+        const val TEXTURE_BOTTOM = 0.88f
         const val TEXTURE_REACH = 25
         const val TEXTURE_STEP = 3
 

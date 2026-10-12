@@ -153,7 +153,11 @@ measured in the game by holding pieces in the air and comparing screenshots.
 
 ## The play loop
 
-`Player` looks, thinks and moves one piece at a time. After a drag it waits until the screen
+`Player` looks, thinks and moves one piece at a time, which takes about a second and a half
+per piece. Most of that is the drag and the wait for the game to show its result. The
+waits were shortened as far as it saves time; the drag was not, because a piece dragged
+twice as fast landed beside its place two or three times in a hundred, and a single such
+piece can cost the combo. After a drag it waits until the screen
 shows the board it expects, or until two looks in a row agree, so that it does not plan on
 a board whose lines are still vanishing. A piece that slipped back into the tray is simply
 tried again on the next turn.
@@ -167,6 +171,10 @@ taps nothing there.
 
 When the game was started anew and waits in its main menu, the bot taps "Classic" to go on
 with the game. That is the only thing it taps that is not a piece.
+
+When the bot has not placed a piece for 45 seconds although it should, it rings and
+vibrates, and again five and ten minutes later: the game is over, something else is on the
+screen, or the bot cannot read the game. This can be switched off in the app.
 
 While the notification shade, the lock screen or anything else of the system may lie on top
 of the game, the bot keeps no picture of the screen and taps nothing. It goes on when it

@@ -44,6 +44,11 @@ class BotSettings(context: Context) {
         get() = preferences.getBoolean(KEY_ENDLESS, false)
         set(value) = preferences.edit { putBoolean(KEY_ENDLESS, value) }
 
+    /** Whether the bot rings and vibrates when it has come to a halt without being told to. */
+    var alert: Boolean
+        get() = preferences.getBoolean(KEY_ALERT, true)
+        set(value) = preferences.edit { putBoolean(KEY_ALERT, value) }
+
     /** The combo as the last run counted it, to go on with after the bot was started anew. */
     var savedCombo: SavedCombo?
         get() {
@@ -56,6 +61,7 @@ class BotSettings(context: Context) {
 
     private companion object {
         const val KEY_COMBO = "combo"
+        const val KEY_ALERT = "alert"
         const val KEY_ENDLESS = "endless"
         const val KEY_MEASURE = "measure"
         const val KEY_STRATEGY = "strategy"

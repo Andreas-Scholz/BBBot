@@ -50,7 +50,9 @@ screenshot ──► recognition ──► solver ──► gestures
 3. Open Block Blast and start a game. A small BBBot panel appears at the bottom of the
    screen, between the pieces and the banner ad, and disappears when the game is left. It
    can be dragged by its text. The bot does nothing until its play button is pressed, so
-   the game can be played by hand with the panel there.
+   the game can be played by hand with the panel there. The cross at its end puts the panel
+   away until the game is opened the next time. While the bot plays, the panel shows how
+   long the combo is and the longest it has been in this run.
 4. Choose in the app how the bot should play: safe, balanced or risky (see "Strategies").
    The choice applies the next time the bot is started.
 5. Press the play button in the panel. The bot plays until it is stopped with the same

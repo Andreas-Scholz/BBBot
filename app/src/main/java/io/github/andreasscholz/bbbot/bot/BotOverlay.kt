@@ -19,7 +19,12 @@ import kotlin.math.abs
  * permission beyond the service itself. The panel can be dragged by its text in case it covers
  * something.
  */
-class BotOverlay(private val service: AccessibilityService, onToggle: () -> Unit, onCapture: () -> Unit) {
+class BotOverlay(
+    private val service: AccessibilityService,
+    onToggle: () -> Unit,
+    onCapture: () -> Unit,
+    onHide: () -> Unit,
+) {
 
     private val windowManager = service.getSystemService(WindowManager::class.java)
 
@@ -47,6 +52,7 @@ class BotOverlay(private val service: AccessibilityService, onToggle: () -> Unit
     init {
         toggle.setOnClickListener { onToggle() }
         root.findViewById<View>(R.id.overlay_capture).setOnClickListener { onCapture() }
+        root.findViewById<View>(R.id.overlay_hide).setOnClickListener { onHide() }
         makeDraggable(status, ViewConfiguration.get(service).scaledTouchSlop)
     }
 

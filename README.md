@@ -149,6 +149,20 @@ shows the board it expects, or until two looks in a row agree, so that it does n
 a board whose lines are still vanishing. A piece that slipped back into the tray is simply
 tried again on the next turn.
 
+When the game was started anew and waits in its main menu, the bot taps "Classic" to go on
+with the game. That is the only thing it taps that is not a piece: it leaves ads alone, and
+what the game shows when it is over is not known yet, so the bot stops there and keeps a
+picture every five seconds for a while (`after-…`), to learn from.
+
+While the notification shade, the lock screen or anything else of the system may lie on top
+of the game, the bot keeps no picture of the screen and taps nothing. It goes on when it
+sees the game again.
+
+The score is read on every look. A reading that fell or leapt by more than two million is
+taken for misread, unless the next one agrees with it: in a long combo a single clear can
+earn that much. The combo as the bot counts it is kept across runs, so that a new version
+can be installed in the middle of a game.
+
 ## The solver
 
 The board is a 64-bit number, one bit per cell, so placing a piece and finding full rows and

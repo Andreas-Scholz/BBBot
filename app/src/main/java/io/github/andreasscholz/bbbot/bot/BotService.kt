@@ -43,6 +43,13 @@ class BotService : AccessibilityService() {
     private var firstScore: Long? = null
     private var lastScore: Long? = null
     private var playing: Job? = null
+
+    /**
+     * Whether something of the system may lie on top of the game. While it may, no picture of
+     * the screen is kept and nothing is tapped. It is over when the game is seen again.
+     */
+    @Volatile
+    private var covered = false
     private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
 
     override fun onServiceConnected() {
@@ -58,9 +65,15 @@ class BotService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         when (event.packageName?.toString()) {
-            GAME_PACKAGE -> overlay.show()
-            // The panel itself and system windows such as the notification shade also report in.
-            null, packageName, SYSTEM_UI_PACKAGE -> Unit
+            GAME_PACKAGE -> {
+                covered = false
+                overlay.show()
+            }
+            // The notification shade, the lock screen and the like. They lie on top of the game
+            // without it going away, and nothing tells when they are gone again.
+            SYSTEM_UI_PACKAGE -> covered = true
+            // The panel itself also reports in.
+            null, packageName -> Unit
             else -> {
                 // Never touch the screen of anything but the game.
                 stopPlaying()
@@ -86,7 +99,7 @@ class BotService : AccessibilityService() {
         strategy = settings.strategy
         val solver = Solver(HeuristicEvaluator(strategy.weights))
         val trace = Trace(this)
-        val player = Player(screenCapture, Finger(this), captureStore, solver, trace, settings, onStatus = ::showStatus)
+        val player = Player(screenCapture, Finger(this), captureStore, solver, trace, settings, onStatus = ::showStatus, gameInFront = { !covered }, onGameSeen = { covered = false })
         firstScore = null
         lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
         showStatus(lastStatus)
@@ -112,6 +125,12 @@ class BotService : AccessibilityService() {
                 val file = saveScreenshot("${CaptureStore.FINAL_PREFIX}-${played.name.lowercase()}")
                 log("no_room", file.name)
                 overlay.setStatus(getString(R.string.overlay_no_move, lastStatus.moves))
+                // What the game shows when it is over is not known yet. A few pictures of what
+                // follows are kept, to teach the bot to start a new game by itself one day.
+                repeat(AFTER_PICTURES) {
+                    delay(AFTER_MS)
+                    if (!covered) saveScreenshot("after")
+                }
             } catch (e: CancellationException) {
                 overlay.setStatus(getString(R.string.overlay_stopped, lastStatus.moves, lastStatus.lines))
                 withContext(NonCancellable) { log("stopped", "") }
@@ -176,6 +195,8 @@ class BotService : AccessibilityService() {
         private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         private const val TAG = "BBBot"
         private const val PANEL_HIDE_MS = 150L
+        private const val AFTER_PICTURES = 20
+        private const val AFTER_MS = 5000L
 
         private val mutableConnected = MutableStateFlow(false)
 

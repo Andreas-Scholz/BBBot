@@ -15,6 +15,8 @@
     <string name="main_strategy_text">The choice applies the next time the bot is started.</string>
     <string name="main_measure_title">4. Measure exactly</string>
     <string name="main_measure_text">Wait after every clear until the score stands still, so that the record shows what each piece earned. The bot then needs five to six seconds per clear. Switched off, it only waits for rare clears whose worth is not known yet. Applies the next time it is started.</string>
+    <string name="main_endless_title">5. Endless</string>
+    <string name="main_endless_text">Switched off, the bot stops as soon as the pieces no longer all fit and leaves the last pieces to you. Switched on, it places what still fits, which ends the game, and goes on with the next game. It does not yet get past the screens and ads the game shows in between by itself; it keeps pictures of them to learn from. Applies the next time it is started.</string>
     <string name="strategy_safe">Safe</string>
     <string name="strategy_safe_text">Lets a combo go sooner to keep the board open. Fewer points in simulation, and no game lost.</string>
     <string name="strategy_balanced">Balanced</string>

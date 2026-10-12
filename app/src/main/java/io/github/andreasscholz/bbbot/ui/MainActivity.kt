@@ -91,6 +91,7 @@ private fun MainScreen() {
         val settings = remember { BotSettings(context) }
         StrategyChoice(settings)
         MeasureSwitch(settings)
+            EndlessSwitch(settings)
     }
 }
 
@@ -152,6 +153,31 @@ private fun MeasureSwitch(settings: BotSettings) {
             onCheckedChange = {
                 measure = it
                 settings.measure = it
+            },
+        )
+    }
+}
+
+@Composable
+private fun EndlessSwitch(settings: BotSettings) {
+    var endless by remember { mutableStateOf(settings.endless) }
+
+    Text(
+        text = stringResource(R.string.main_endless_title),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(top = 32.dp),
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            text = stringResource(R.string.main_endless_text),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f).padding(end = 16.dp),
+        )
+        Switch(
+            checked = endless,
+            onCheckedChange = {
+                endless = it
+                settings.endless = it
             },
         )
     }

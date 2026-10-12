@@ -9,8 +9,11 @@ import io.github.andreasscholz.bbbot.game.Board.Companion.SIZE
  * were found by letting the solver play simulated games (see `StrategyLab` in the tests).
  */
 data class Weights(
-    /** Per empty cell. */
-    val empty: Double = 2.0,
+    /**
+     * Per empty cell. It was twice this until the simulated game dealt its pieces the way the
+     * real one does; an empty board is worth less in a game that hardly ever ends.
+     */
+    val empty: Double = 1.0,
     /** Per edge between a filled and an empty cell, the outer wall counting as filled. */
     val edge: Double = -3.5,
     /** Per empty cell enclosed on all four sides. */

@@ -51,6 +51,9 @@ class Player(
     /** Called when a look showed the game beyond doubt. */
     private val onGameSeen: () -> Unit = {},
 ) {
+    /** Called in endless play when a game is over, before anything of what follows is looked at. */
+    var onGameOver: suspend () -> Unit = {}
+
     private var rejection = ""
     private val reader = ScreenReader(onReject = { rejection = it }).apply { known = settings.knownBoard }
     private var savedBoard = reader.known
@@ -89,6 +92,11 @@ class Player(
         var scoreMoving = false
         var scoreLooks = 0
         val measure = settings.measure
+        val endless = settings.endless
+        // In endless play: whether the game is over and the next one is waited for, and how
+        // many pictures of what the game shows meanwhile have been kept.
+        var over = false
+        var picturesAfter = 0
         // Whether the score is waited for after the piece placed last.
         var exact = false
         try {
@@ -113,7 +121,11 @@ class Player(
                             delay(MENU_MS)
                             continue
                         }
-                        if (unreadable == UNREADABLE_BEFORE_SAVE) {
+                        if (over && picturesAfter < PICTURES_AFTER && unreadable % LOOKS_PER_PICTURE == 0) {
+                            // What the game shows between two games is not known yet.
+                            captureStore.save(shot, "after")
+                            picturesAfter++
+                        } else if (unreadable == UNREADABLE_BEFORE_SAVE) {
                             val file = captureStore.save(shot, "unreadable")
                             Log.i(TAG, "Cannot read the screen after $moves moves ($rejection), saved ${file.name}")
                         }
@@ -123,6 +135,15 @@ class Player(
                 }
                 unreadable = 0
                 onGameSeen()
+                if (over && screen.board != deadEnd) {
+                    Log.i(TAG, "A new game after $moves moves")
+                    over = false
+                    deadEnd = null
+                    pending = null
+                    comboLength = 0
+                    clearedThisRound = false
+                    lastTray = 0
+                }
                 if (reader.known != savedBoard) {
                     // Kept for the next run, which may start on a screen that hides the board.
                     savedBoard = reader.known
@@ -238,6 +259,9 @@ class Player(
                         delay(RETRY_MS)
                         continue
                     }
+                    // In endless play the pieces that still fit are placed like any other.
+                    val stuck = !endless || plan.placements.isEmpty()
+                    if (stuck && !over) {
                     Log.i(TAG, "Not all pieces fit after $moves moves:\n${screen.board}")
                     trace.add(
                         shot,
@@ -261,9 +285,22 @@ class Player(
                         ),
                     )
                     onStatus(PlayStatus(PlayStatus.State.NO_MOVE, moves, lines, score))
-                    return
+                    }
+                    if (stuck) {
+                        if (!endless) return
+                        // Nothing fits any more, so the game is over. It is left to show what
+                        // it shows; the bot goes on when it sees a game again.
+                        if (!over) {
+                            over = true
+                            picturesAfter = 0
+                            onGameOver()
+                        }
+                        delay(OVER_MS)
+                        continue
+                    }
+                } else {
+                    deadEnd = null
                 }
-                deadEnd = null
                 val placement = plan.placements.first()
 
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
@@ -385,6 +422,12 @@ class Player(
 
         // The main menu has to be there on this many looks in a row before it is tapped, and
         // the game is given this long to come up after the tap.
+        // In endless play after a game is over: how often to look, and how many pictures to keep
+        // of what the game shows, one in so many looks at a screen that is not the game.
+        const val OVER_MS = 1000L
+        const val PICTURES_AFTER = 40
+        const val LOOKS_PER_PICTURE = 10
+
         const val MENU_LOOKS = 3
         const val TAP_MS = 60L
         const val MENU_MS = 3000L

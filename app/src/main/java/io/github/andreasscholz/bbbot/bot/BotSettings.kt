@@ -35,6 +35,15 @@ class BotSettings(context: Context) {
         get() = preferences.getBoolean(KEY_MEASURE, false)
         set(value) = preferences.edit { putBoolean(KEY_MEASURE, value) }
 
+    /**
+     * What the bot does when the offered pieces no longer all fit. Switched off, it stops and
+     * leaves the last pieces to the user. Switched on, it places what still fits, which ends
+     * the game, and goes on with the next game once there is one.
+     */
+    var endless: Boolean
+        get() = preferences.getBoolean(KEY_ENDLESS, false)
+        set(value) = preferences.edit { putBoolean(KEY_ENDLESS, value) }
+
     /** The combo as the last run counted it, to go on with after the bot was started anew. */
     var savedCombo: SavedCombo?
         get() {
@@ -46,6 +55,7 @@ class BotSettings(context: Context) {
 
     private companion object {
         const val KEY_COMBO = "combo"
+        const val KEY_ENDLESS = "endless"
         const val KEY_MEASURE = "measure"
         const val KEY_STRATEGY = "strategy"
         const val KEY_KNOWN_BOARD = "known_board"

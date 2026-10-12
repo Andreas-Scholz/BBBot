@@ -16,6 +16,19 @@ class ScoringTest {
     }
 
     @Test
+    fun `the length of the combo is read off what a clear earned`() {
+        // As traced: the first clears of a combo, and clears deep in one.
+        assertEquals(listOf(1, 2, 5, 6, 10, 11, 13), listOf(51L, 101L, 251L, 452L, 753L, 1104L, 1306L).map { Scoring.comboLength(it, 1, false) })
+        assertEquals(364, Scoring.comboLength(36520, 1, false))
+        assertEquals(366, Scoring.comboLength(36722, 1, false))
+        assertEquals(33, Scoring.comboLength(6922, 2, true))
+        assertEquals(26, Scoring.comboLength(15652, 3, false))
+        // Not what any combo pays, or more lines than were measured often enough.
+        assertEquals(null, Scoring.comboLength(36560, 1, false))
+        assertEquals(null, Scoring.comboLength(43353, 4, false))
+    }
+
+    @Test
     fun `emptying the board adds the same few points at any length of the combo`() {
         assertEquals(300L, Scoring.clear(1, 1, true) - Scoring.clear(1, 1, false))
         assertEquals(300L, Scoring.clear(2, 150, true) - Scoring.clear(2, 150, false))

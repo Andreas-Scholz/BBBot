@@ -31,7 +31,7 @@
     <string name="overlay_start">Spielen starten</string>
     <string name="overlay_stop">Spielen stoppen</string>
     <string name="overlay_stopped">Gestoppt · Züge %1$d\nCombo %2$d · max. %3$d</string>
-    <string name="overlay_playing">Combo %3$d · max. %4$d\n%2$s · Züge %1$d</string>
+    <string name="overlay_playing">Combo %3$s · max. %4$d\n%2$s · Züge %1$d</string>
     <string name="overlay_no_game">Kein Spiel zu sehen\nCombo %1$d · max. %2$d</string>
     <string name="overlay_no_move">Kein Platz für alle Steine\nCombo %1$d · max. %2$d</string>
     <string name="overlay_error">Durch einen Fehler gestoppt\nCombo %1$d · max. %2$d</string>

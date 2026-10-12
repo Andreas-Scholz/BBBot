@@ -51,8 +51,8 @@ screenshot ──► recognition ──► solver ──► gestures
    screen, between the pieces and the banner ad, and disappears when the game is left. It
    can be dragged by its text. The bot does nothing until its play button is pressed, so
    the game can be played by hand with the panel there. The cross at its end puts the panel
-   away until the game is opened the next time. The panel shows how long the combo is and
-   the longest it has been in this game, also while the bot is stopped or cannot see the
+   away until the game is opened the next time. The panel shows the combo as the game
+   counts it and the longest it has been in this game, also while the bot is stopped or cannot see the
    game; both are kept across runs. The bot takes the panel out of every picture of the
    screen before reading it, so the panel may lie anywhere on the background. Dragged onto
    the board or the pieces it would hide blocks; the bot then waits and says so.
@@ -272,13 +272,20 @@ The solver plays by that:
 - A piece that clears something gets a small bonus however many lines it clears, so that two
   pieces clearing a line each are preferred to one clearing two.
 
-The bot counts the combo itself. Started in the middle of a game it can only see that a
-combo is running, and takes it to be 100 long. Working the length out from what a clear
-earns was tried and dropped: the score counts up late and in stages, so there is no telling
-when it has taken a clear in, and the results were nonsense (a combo of 1 right after sixty
-clears). The same measurement early in a game gave 61 where 45 pieces had cleared something
-and 64 lines had been cleared, which does not fit the step per piece measured late in a
-game; how the worth of a line grows at the start of a game is still open.
+The bot counts the combo itself, and it measures it. The game shows the number for a moment
+after every clear, but at the place of the clear, in other colors in every theme and often
+cut off by the edge of the screen. What a clear earns tells the same to the piece: a single
+line that earned 42,440 points was the 423rd clearing piece of its combo, and the game
+showed "Combo 422" with it, because it does not count the piece that began the combo. So at
+the start of a run, and again every 250 clearing pieces, the bot lets the score settle after
+one clearing piece and after the next, and reads the length of the combo off the
+difference. That costs a few seconds each time. Until the first measurement the panel shows
+the combo it took over from the last run, or assumed, with a question mark.
+
+An earlier attempt at the same had given nonsense, because the score counts up late and in
+stages and there was no telling when it had taken a clear in. It is now taken for settled
+when it has risen since the piece, stood still for three looks and the clear is three
+seconds ago.
 
 New pieces grow into place, and a look in the middle of that reads them wrong: in traces one
 round in twelve began with such a reading, and one of them cost a combo of a thousand,

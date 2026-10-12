@@ -9,6 +9,7 @@ import io.github.andreasscholz.bbbot.game.Piece
 import io.github.andreasscholz.bbbot.game.Solver
 import io.github.andreasscholz.bbbot.vision.ComboIcon
 import io.github.andreasscholz.bbbot.vision.GameScreen
+import io.github.andreasscholz.bbbot.vision.MainMenu
 import io.github.andreasscholz.bbbot.vision.ScoreReader
 import io.github.andreasscholz.bbbot.vision.ScreenReader
 import kotlinx.coroutines.CancellationException
@@ -45,6 +46,10 @@ class Player(
     private val trace: Trace,
     private val settings: BotSettings,
     private val onStatus: (PlayStatus) -> Unit,
+    /** Whether the game is what the screen shows, as far as the service can tell. */
+    private val gameInFront: () -> Boolean = { true },
+    /** Called when a look showed the game beyond doubt. */
+    private val onGameSeen: () -> Unit = {},
 ) {
     private var rejection = ""
     private val reader = ScreenReader(onReject = { rejection = it }).apply { known = settings.knownBoard }
@@ -95,14 +100,29 @@ class Player(
                     // Also seen briefly in every game while lines vanish and new pieces arrive.
                     unreadable++
                     if (unreadable >= UNREADABLE_BEFORE_REPORT) onStatus(PlayStatus(PlayStatus.State.NO_GAME, moves, lines))
-                    if (screen == null && unreadable == UNREADABLE_BEFORE_SAVE) {
-                        val file = captureStore.save(shot, "unreadable")
-                        Log.i(TAG, "Cannot read the screen after $moves moves ($rejection), saved ${file.name}")
+                    // With the notification shade or anything else of the system on top, the
+                    // screen is none of the bot's business: nothing is kept of it or tapped on it.
+                    if (screen == null && gameInFront()) {
+                        val classic = MainMenu.classicButton(shot)
+                        if (classic != null && unreadable >= MENU_LOOKS) {
+                            // The game was started anew and waits in its main menu.
+                            Log.i(TAG, "The main menu: going on with the game")
+                            finger.down(classic.first.toFloat(), classic.second.toFloat(), TAP_MS)
+                            finger.up(durationMs = 1)
+                            unreadable = 0
+                            delay(MENU_MS)
+                            continue
+                        }
+                        if (unreadable == UNREADABLE_BEFORE_SAVE) {
+                            val file = captureStore.save(shot, "unreadable")
+                            Log.i(TAG, "Cannot read the screen after $moves moves ($rejection), saved ${file.name}")
+                        }
                     }
                     delay(RETRY_MS)
                     continue
                 }
                 unreadable = 0
+                onGameSeen()
                 if (reader.known != savedBoard) {
                     // Kept for the next run, which may start on a screen that hides the board.
                     savedBoard = reader.known
@@ -282,6 +302,12 @@ class Player(
                         exact = waitForScore,
                     )
                     placedAt = SystemClock.elapsedRealtime()
+                    if (result.linesCleared > 0 && score != null) {
+                        // Kept as it will be once the piece has landed: a run that is ended
+                        // right now, by a new version for example, would otherwise leave behind
+                        // a round without a clear, and the next run would take the combo for lost.
+                        settings.savedCombo = SavedCombo(comboLength + 1, clearedThisRound = true, score)
+                    }
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {
                     delay(RETRY_MS)
@@ -356,5 +382,11 @@ class Player(
 
         const val UNREADABLE_BEFORE_REPORT = 4
         const val UNREADABLE_BEFORE_SAVE = 8
+
+        // The main menu has to be there on this many looks in a row before it is tapped, and
+        // the game is given this long to come up after the tap.
+        const val MENU_LOOKS = 3
+        const val TAP_MS = 60L
+        const val MENU_MS = 3000L
     }
 }

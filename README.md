@@ -178,22 +178,22 @@ traces of real games (see "Traces" below):
   combo ends.
 - A clear earns more the longer the combo is, by orders of magnitude: in one game a single
   line was worth about 9,000 points with a long combo and about 10 right after it ended.
-- The worth of a line grows by a fixed step with every piece that clears something, whether
-  it clears one line or several. In the game this was measured in, a single line was worth
-  11,113 points and 76.09 more with each such piece, and 24 single clears lay within 1.1
-  points of that straight line. So the combo counts pieces, not lines.
-- Two lines at once earn exactly twice a single line, three lines six times. Four and more
-  were not seen yet.
+- The combo counts pieces that cleared something, not lines. A single line earns the length
+  of the combo times a step: 50 points for the first five pieces of a combo, 75 for the next
+  five and 100 from the eleventh on. So the first clears of a combo earn 51, 101, 151, 201 and
+  251 points, the sixth 452, the eleventh 1,104, and from there every clearing piece adds
+  100.33 to what a line is worth; 105 single clears in a row lay within a point of that line.
+  An earlier game paid 76.10 per step for a long combo. Why is not known.
+- Two lines at once earn exactly twice a single line, three lines six times. Four lines
+  earned 14.4 single lines, measured twice; five earned about 20, measured once and less
+  surely. Six were not seen.
 - A block placed earns a point, which reaches the score a second or two late.
-- After a combo was lost, the first single line earned 39 or 77 points, and from there the
-  worth of a line grew again by the same step.
-
-Four lines at once earned 14.4 single lines, measured twice; five earned about 20, measured
-once and less surely. Six were not seen. Emptying the board happened once and was not
-measured cleanly. After an emptied board the game shows a kind of multiplier, and the one
-time it happened in a traced game a line was worth about 76 points per step of the combo
-before it and about 103 after. Whether emptying the board raises what every later clear
-earns is being measured; the bot no longer avoids an empty board, as it did for a while.
+- A piece that empties the board earns 300 points on top of its clear, and nothing else
+  changes: in one game the board was emptied eight times, at combos between 30 and 190
+  pieces long, and each time the clear earned 298 to 300 points more than its place in the
+  combo, while the clears before and after it lay on the same straight line. The symbol the
+  game shows after an emptied board is no multiplier. With a long combo, where a single
+  line earns thousands of points, emptying the board is worth next to nothing.
 
 ### The pieces
 
@@ -244,21 +244,25 @@ app differ in. In 384 simulated games each, with up to 1000 rounds of three piec
 
 | Strategy | Limit | Rounds survived | Points per round | Points per game | Longest combo |
 |----------|-------|-----------------|------------------|-----------------|---------------|
-| Safe     | 7×    | 354             | 4905             | 1,737,000       | 369           |
-| Balanced | 11×   | 331             | 5898             | 1,949,000       | 384           |
-| Risky    | 18×   | 285             | 5049             | 1,440,000       | 345           |
+| Safe     | 7×    | 342             | 47,460           | 16,241,000      | 351           |
+| Balanced | 11×   | 322             | 56,368           | 18,178,000      | 377           |
+| Risky    | 18×   | 288             | 53,111           | 15,309,000      | 355           |
 
 Balanced is the limit that scored best, safe the one with the longest games. Risky defends
 the combo harder still; here that ended games sooner and scored less, and on the phone a
 bot that took its combo for much longer than it was filled the board until no round fit. At
 limits of 3× and 5× games are no longer than at 7× and score less.
 
-These games follow what was measured: a point per block; per clear ten points times the
-length of the combo, times 1, 2 or 6 for one, two or three lines; pieces drawn with the
-counted frequencies, and a round drawn again up to three times when it cannot be placed. The
-ten is arbitrary and the three is a guess, so the table ranks the strategies against each
-other. The game the traces come from lasted far longer than these do, more than a thousand
-rounds, so the real game is kinder than this model of it.
+These games follow what was measured: a point per block; per clear what the game was
+measured to pay (see "Combos" above), with 300 points for an emptied board; pieces drawn
+with the counted frequencies, and a round drawn again up to three times when it cannot be
+placed. The three is a guess, so the table ranks the strategies against each other. The
+game the traces come from lasted far longer than these do, more than a thousand rounds, so
+the real game is kinder than this model of it.
+
+Whether to go for an empty board was tried here too, with a reward for the piece that
+empties it between -25 and 250 times that of a single line. Rounds survived stayed between
+321 and 323 and points per game within 2 %, which is chance. So there is no such reward.
 
 The weights of the board rating were tuned against this model: with the pieces the game
 really hands out, single empty cells that are enclosed cost much more than they did, and

@@ -16,10 +16,8 @@ data class GameResult(
  *
  * The combo and the scoring follow what was read off traces of the real game: a combo lasts as
  * long as every round of three pieces clears at least one line; a block placed earns a point;
- * a clear earns ten points times the length of the combo, counted in pieces that cleared
- * something, times 1, 2 or 6 for one, two or three lines at once (see [Scoring]). The ten is
- * arbitrary: what a line is worth per step of the combo was 76 points in the one game it was
- * measured in, and where that number comes from is not known. The pieces are drawn with the
+ * a clear earns what [Scoring] says, which grows with the length of the combo, counted in
+ * pieces that cleared something. The pieces are drawn with the
  * frequencies counted in the real game (see [PieceCatalog]), and a round whose pieces cannot
  * all be placed is drawn again a few times, which is a guess at what the game does (see
  * [draws]). So the points to expect on the phone may still differ.
@@ -61,7 +59,7 @@ class Simulator(
                     lines += result.linesCleared
                     combo++
                     longestCombo = maxOf(longestCombo, combo)
-                    score += 10L * Scoring.worth(result.linesCleared) * combo
+                    score += Scoring.clear(result.linesCleared, combo, emptiedBoard = board == Board.EMPTY)
                 }
             }
             check(board == plan.board) { "The plan does not lead to the board it promises" }

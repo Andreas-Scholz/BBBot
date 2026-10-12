@@ -14,7 +14,8 @@ class ScoreReaderTest {
 
     @Test
     fun `reads scores of every length, in several themes, over the combo symbol`() {
-        val scores = listOf(0L, 17942242L, 17942253L, 18162720L, 23350136L, 23555286L, 25195962L, 25258059L)
+        // The last one has nine digits and the rainbow heart of a long combo behind them.
+        val scores = listOf(0L, 17942242L, 17942253L, 18162720L, 23350136L, 23555286L, 25195962L, 25258059L, 180215939L)
         for (score in scores) {
             assertEquals(score, ScoreReader.read(screenWith("$score.png")))
         }

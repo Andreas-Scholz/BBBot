@@ -77,7 +77,7 @@ class Player(
         // The score as the last look showed it, and whether a piece that cleared something has
         // been placed since the score was last seen standing still.
         var lastScore: Long? = null
-        var highestScore = -1L
+        val scoreFilter = ScoreFilter()
         var scoreAtMove: Long? = null
         var equalLooks = 0
         var placedAt = 0L
@@ -143,9 +143,7 @@ class Player(
 
                 // The game counts the score up over a moment after a clear. To know what a piece
                 // earned, the next one waits until two looks in a row show the same score.
-                // A score that fell, or leapt by more than any piece can earn, was misread.
-                val score = ScoreReader.read(shot)?.takeIf { it >= highestScore && it <= highestScore + MAX_SCORE_STEP || highestScore < 0 }
-                if (score != null) highestScore = score
+                val score = scoreFilter.accept(ScoreReader.read(shot))
                 val scoreStable = score != null && score == lastScore
                 equalLooks = if (scoreStable) equalLooks + 1 else 0
                 lastScore = score
@@ -182,7 +180,7 @@ class Player(
                     // A run that goes on where the last one stopped, after a new version was
                     // installed for example, takes over the combo as that run counted it.
                     settings.savedCombo?.let { saved ->
-                        if (score != null && score >= saved.score && score - saved.score <= MAX_SCORE_STEP) {
+                        if (score != null && score >= saved.score && score - saved.score <= ScoreFilter.MAX_STEP) {
                             comboLength = saved.length
                             clearedThisRound = saved.clearedThisRound
                         }
@@ -351,7 +349,6 @@ class Player(
         const val ARRIVING_MS = 50L
 
         // Waiting for the score to stand still after a clear: how often to look, and how long between.
-        const val MAX_SCORE_STEP = 2_000_000L
         const val SETTLE_SCORE_MS = 3000L
         const val MAX_SCORE_LOOKS = 30
         const val SCORE_MS = 100L

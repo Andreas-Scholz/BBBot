@@ -5,9 +5,9 @@ package io.github.andreasscholz.bbbot.game
  *
  * A clear of one line earns the length of the combo, counted in pieces that cleared something
  * since it began, times a step that depends on that length. Two lines at once earn exactly
- * twice that, three lines six times, four about 14.4 times (seen twice) and five about 20 times
- * (seen once). Six were not seen and are taken to go on as 30. A piece that empties the board
- * earns a fixed bonus on top, whatever the combo; nothing changes for the clears after it.
+ * twice that, three lines six times, four 14.4 times (measured a dozen times), five about 20
+ * times and six about 30 times (each measured once). A piece that empties the board earns a
+ * fixed bonus on top, whatever the combo; nothing changes for the clears after it.
  */
 object Scoring {
 

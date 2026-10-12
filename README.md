@@ -39,6 +39,7 @@ screenshot ──► recognition ──► solver ──► gestures
 | Score reading and full traces             | done    |
 | Measured scoring and a look a round ahead | done    |
 | Measured pieces, tray read twice, combo measured in play | done |
+| Simulator that deals like the game, evaluation in charts | done |
 
 ## Using it
 
@@ -201,21 +202,36 @@ traces of real games (see "Traces" below):
 
 ### The pieces
 
-The game does not hand out all shapes equally often. Counted in 454 rounds, 1362 pieces: a
-3×3 square is 11.5 % of the pieces, a 2×2 square 9.3 %, the lines of four and five together
-22 %, and single blocks and the lines of two and three did not come up at all
-(`PieceCatalog` has the list).
+The game does not hand out all shapes equally often, and which ones it hands out depends on
+the board. Counted in 2117 rounds, 6227 pieces (`PieceCatalog` has the list):
 
-It also looks at the board. On 364 boards of real games, with 18 blocks on average, every
-round that was offered could be placed completely, where one in forty drawn at random with
-the same frequencies could not have been. It gives no guarantee, though: a game ended on a
-board with 43 blocks, where two random rounds in three would have fit, with a 3×3 square
-that had no place at all. Had the game only made sure that the pieces fit when turned, about
-six of the 364 rounds should not have fit. What fits everything seen so far is that the game
-draws a round again a few times when it cannot be placed, and then gives up; the simulator
-draws three times, which is a guess.
+| Blocks on the board | 0–9    | 10–14  | 15–19  | 20 and more |
+|---------------------|--------|--------|--------|-------------|
+| 3×3 square          | 10.0 % | 10.1 % | 14.4 % | 14.2 %      |
+| 2×2 square          | 5.8 %  | 7.1 %  | 8.3 %  | 10.7 %      |
+| All rectangles      | 22 %   | 29 %   | 34 %   | 37 %        |
+| Straight lines      | 19 %   | 19 %   | 20 %   | 20 %        |
+| Bent shapes         | 59 %   | 52 %   | 46 %   | 43 %        |
 
-So a crowded board is what ends games, and a board with room does not.
+The fuller the board, the more compact rectangles come up and the fewer of the bent shapes.
+Single blocks and the lines of two and three hardly come up at all.
+
+Beyond that, the pieces suit the board they are dealt onto. That showed when the solver
+played the same 2107 boards twice, once with the three pieces the game dealt and once with
+pieces drawn at random with the counted frequencies (`DealLab` in the unit tests):
+
+- Every round dealt could be placed completely. Of the drawn rounds one in 130 could not,
+  and on boards with 26 blocks and more one in ten. It is no guarantee, though: a game ended
+  on a board with 43 blocks with a 3×3 square that had no place at all.
+- With the pieces dealt the solver cleared an eighth more lines, and on boards with 16 to 19
+  blocks a fifth more. So the board empties faster than chance would have it.
+- A round that could not clear anything was dealt 18 times, where 15 were to be expected
+  from drawn rounds. In that the game is neither kind nor unkind.
+
+How the game does it is not known. The simulator imitates it: shapes are drawn with the
+frequencies for the board's fill, a round is drawn again until it can be placed, and from a
+dozen blocks on the round is the best of five by the lines it can clear, unless the first of
+them cannot clear anything. That was fitted to the numbers above and is not the game's rule.
 
 The solver plays by that:
 
@@ -244,42 +260,28 @@ once two looks in a row show the same three pieces.
 ### Strategies
 
 The limit up to which a combo gains in worth is the setting that the three strategies in the
-app differ in. In 384 simulated games each, with up to 1000 rounds of three pieces:
+app differ in. In 384 simulated games each, of 1500 rounds of three pieces:
 
-| Strategy | Limit | Rounds survived | Points per round | Points per game | Longest combo |
-|----------|-------|-----------------|------------------|-----------------|---------------|
-| Safe     | 7×    | 342             | 47,460           | 16,241,000      | 351           |
-| Balanced | 11×   | 322             | 56,368           | 18,178,000      | 377           |
-| Risky    | 18×   | 288             | 53,111           | 15,309,000      | 355           |
+| Strategy | Limit | Points per game | Rounds per lost combo | Blocks on the board | Games ended early |
+|----------|-------|-----------------|-----------------------|---------------------|-------------------|
+| Safe     | 5×    | 236 million     | 625                   | 20.2                | 0                 |
+| Balanced | 11×   | 287 million     | 925                   | 22.6                | 6                 |
+| Risky    | 25×   | 288 million     | 1014                  | 24.3                | 12                |
 
-Balanced is the limit that scored best, safe the one with the longest games. Risky defends
-the combo harder still; here that ended games sooner and scored less, and on the phone a
-bot that took its combo for much longer than it was filled the board until no round fit. At
-limits of 3× and 5× games are no longer than at 7× and score less.
+Balanced scores as much as risky and loses half as many games. Safe keeps the board
+emptiest and gives a combo up sooner. The charts are under "Evaluation" below.
 
-These games follow what was measured: a point per block; per clear what the game was
-measured to pay (see "Combos" above), with 300 points for an emptied board; pieces drawn
-with the counted frequencies, and a round drawn again up to three times when it cannot be
-placed. The three is a guess, so the table ranks the strategies against each other. The
-game the traces come from lasted far longer than these do, more than a thousand rounds, so
-the real game is kinder than this model of it.
+A combo is worth three times what it was until version 0.8.5. That came out of the
+simulator dealing its pieces the way the game does: such a game hardly ever ends, so a
+fuller board is less of a danger than it seemed, and points come from not losing the combo.
+What counts is the most a combo can come to be worth, its worth at the start times the
+limit. In 288 games each of 1000 rounds:
 
-Whether to go for an empty board was tried here too, with a reward for the piece that
-empties it between -25 and 250 times that of a single line. Rounds survived stayed between
-321 and 323 and points per game within 2 %, which is chance. So there is no such reward.
+| Most a combo is worth | 40 | 70 | 110 | 180 | 220 | 330 | 550 | 1100 |
+|-----------------------|----|----|-----|-----|-----|-----|-----|------|
+| Million points        | 38 | 71 | 100 | 121 | 133 | 139 | 134 | 138  |
 
-The weights of the board rating were tuned against this model: with the pieces the game
-really hands out, single empty cells that are enclosed cost much more than they did, and
-edges somewhat more. At the same limit that made games 29 % longer and brought 28 % more
-points.
-
-The simulated game differs from the real one in two ways that pull in opposite directions.
-It ends much sooner: half of the simulated games are over after 250 rounds, while a real
-game was still running after more than a thousand. And it loses its combo much less often:
-once in 159 rounds, against once in 39 in the real game, where in 10 of 26 such rounds the
-pieces could not clear anything. Both clear 1.9 lines per round. So the game seems to pick
-pieces that fit but do not clear, and the strategy that is best here need not be the best
-on the phone.
+Up to 0.8.5 balanced stood at 110; it is now at 330, where the gain levels off.
 
 `StrategyLab` in the unit tests is the tool these numbers come from:
 
@@ -290,7 +292,8 @@ BBBOT_LAB=1 ./gradlew :app:testDebugUnitTest --rerun --tests '*StrategyLab*' -i 
 With `BBBOT_LAB_OUT` set to a folder it also writes, per strategy, how the games stood after
 every round and how each one ended, to draw charts from.
 
-Also tried there, and left out because it did not help or made things worse:
+Also tried there, against an earlier simulator that drew its pieces blindly, and left out
+because it did not help or made things worse:
 
 - trying the best sequences against whole rounds drawn at random and counting in how many a
   line can be cleared and in how many the pieces do not fit (`RoundSampler`, switched off).
@@ -310,6 +313,93 @@ Also tried there, and left out because it did not help or made things worse:
 - not counting a round against the combo when its pieces could not clear anything, after it
   looked that way in one game (the traces showed the combo ending all the same),
 - more than 64 sequences for the closer look (no effect beyond 64).
+
+## Evaluation
+
+What is known about the game and the bot, in charts. They are drawn by `tools/charts.py` from
+the traces of the phone and from simulated games, and are redrawn when there is something
+new:
+
+```sh
+adb pull /sdcard/Android/data/io.github.andreasscholz.bbbot/files/captures captures
+BBBOT_LAB=1 BBBOT_LAB_GAMES=384 BBBOT_LAB_ROUNDS=1500 BBBOT_LAB_OUT=lab-out \
+    ./gradlew :app:testDebugUnitTest --rerun --tests '*StrategyLab*'
+BBBOT_DEALS=captures BBBOT_DEALS_OUT=deals.csv \
+    ./gradlew :app:testDebugUnitTest --rerun --tests '*DealLab*'
+python tools/charts.py --lab lab-out --traces captures --deals deals.csv
+```
+
+### What the strategies score
+
+![Expected score by rounds](docs/charts/score-by-rounds.svg)
+
+| Million points after | 100 | 250 | 500  | 1000  | 1500 rounds |
+|----------------------|-----|-----|------|-------|-------------|
+| Safe                 | 1.6 | 9.8 | 35.8 | 121.5 | 236.2       |
+| Balanced             | 1.6 | 9.8 | 37.9 | 139.7 | 287.4       |
+| Risky                | 1.6 | 9.8 | 37.9 | 138.3 | 288.0       |
+
+The score grows faster than the rounds, because a clear earns the more the longer the combo
+is and the combo grows with every round. Up to 250 rounds the strategies do not differ;
+after that the one that loses its combo less often pulls ahead.
+
+![Length of the combo by rounds](docs/charts/combo-by-rounds.svg)
+
+These are simulated games. They rank the strategies; the points on the phone depend on how
+well the simulator imitates the game, see "Simulated and real games" below.
+
+### What a clear earns
+
+![What a single line earns at the start of a combo](docs/charts/combo-start.svg)
+
+A single line earns the length of the combo times 50 points for the first five clearing
+pieces of a combo, times 75 for the next five and times 100 from the eleventh on, without a
+limit.
+
+![What clearing several lines is worth](docs/charts/lines-worth.svg)
+
+Measured 388, 97, 31, 12, 1 and 1 times. Six lines is the most one piece can clear.
+
+![How often several lines are cleared](docs/charts/lines-share.svg)
+
+Three lines at once are rare and still earn as much as all clears of two lines together.
+
+### A game on the phone
+
+![The score of one game on the phone](docs/charts/real-game.svg)
+
+Flat stretches are the beginnings of combos, steep ones long combos. This game was played
+with several versions of the bot, so it is not a clean run of one strategy.
+
+### Simulated and real games
+
+Until version 0.8.5 the simulator drew its pieces blindly, and its games differed from the
+real one in two ways: half of them were over after 250 rounds, where a real game was still
+running after a thousand, and they lost their combo once in 159 rounds, where the real game
+lost it once in 46. The reason for the first is how the game deals:
+
+![Lines cleared with dealt and with drawn pieces](docs/charts/dealt-and-drawn.svg)
+
+On the same boards and with the same solver, the pieces the game dealt cleared more lines
+than pieces drawn at random, the more so the fuller the board. With pieces that suit the
+board, the board stays emptier and the game goes on. The simulator now deals that way (see
+"The pieces" above), and its games hardly ever end either.
+
+The reason for the second was mostly the solver, not the game. Of 46 rounds without a
+clear, 28 had pieces that could have cleared a line, and 19 of those came at a combo of
+less than 20 pieces, which the solver held too cheap to pay for with the board. A combo is
+now worth three times as much to it.
+
+![Blocks on the board by the length of the combo](docs/charts/filled-by-combo.svg)
+
+How full the bot keeps the board depends on what the combo is worth to it. The dots are
+from games on the phone played with the old worth of a combo, the line is simulated with
+the new one, so the line lies higher. With the old worth the simulator kept 14 to 19 blocks
+where the phone had 13 to 20.
+
+What the simulator still gets wrong: on the phone a young combo of 5 to 19 pieces was lost
+in one round of 17, in the simulator, with the same solver, in one of 50. So the pieces the
+game deals onto a nearly empty board are harder to clear with than the simulator's.
 
 ## Building
 

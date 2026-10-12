@@ -42,9 +42,12 @@ data class Weights(
     val emptiedBoard: Double = 0.0,
     /**
      * What a combo is worth when it begins, as a loss when it ends. The more a combo counts,
-     * the more of the board's good shape is given up to keep clearing lines.
+     * the more of the board's good shape is given up to keep clearing lines. It was a third of
+     * this until the simulated game dealt its pieces the way the real one does: that game
+     * hardly ever ends, so there is less to fear from a fuller board, and on the phone most
+     * combos had been lost in rounds that could have cleared a line.
      */
-    val comboBreak: Double = -10.0,
+    val comboBreak: Double = -30.0,
     /**
      * How much the worth of a combo grows with every piece that cleared something, as a
      * fraction of [comboBreak]. In the game a clear earns more the longer the combo is, so a

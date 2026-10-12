@@ -16,9 +16,9 @@ import kotlin.random.Random
  * With `BBBOT_LAB_OUT` set to a folder, it also writes two files per set there: `<name>.csv`
  * with how the games stood after every round, and `<name>-games.csv` with how each one ended.
  *
- * The games are played against uniformly drawn pieces and scored by the simulator's imitation
- * of the game, so the numbers rank the sets against each other and say little about the points
- * to expect on the phone.
+ * The games are played against the simulator's imitation of the game, which was fitted to
+ * traces but is not the game, so the numbers rank the sets against each other rather than
+ * tell the points to expect on the phone.
  */
 class StrategyLab {
 
@@ -70,14 +70,34 @@ class StrategyLab {
     private fun write(folder: java.io.File, name: String, results: List<GameResult>) {
         folder.mkdirs()
         java.io.File(folder, "$name-games.csv").printWriter().use { file ->
-            file.println("rounds,score,longest_combo,lines,rounds_without_clear,rounds_without_chance")
+            file.println("rounds,score,longest_combo,lines,rounds_without_clear,rounds_without_chance,filled")
             for (result in results) {
                 file.println(
                     listOf(
                         result.rounds, result.score, result.longestCombo, result.linesCleared,
                         result.roundsWithoutClear, result.roundsWithoutChance,
+                        "%.2f".format(java.util.Locale.ROOT, result.filledByRound.average()),
                     ).joinToString(","),
                 )
+            }
+        }
+        java.io.File(folder, "$name-combo.csv").printWriter().use { file ->
+            file.println("combo_from,rounds,filled,without_clear")
+            val from = listOf(0, 1, 5, 20, 60, 120, 200, 400)
+            for (index in from.indices) {
+                var rounds = 0
+                var filled = 0L
+                var withoutClear = 0
+                for (result in results) {
+                    for (round in result.comboByRound.indices) {
+                        val combo = if (round == 0) 0 else result.comboByRound[round - 1]
+                        if (combo < from[index] || index < from.lastIndex && combo >= from[index + 1]) continue
+                        rounds++
+                        filled += result.filledByRound[round]
+                        if (result.comboByRound[round] == 0) withoutClear++
+                    }
+                }
+                file.println("${from[index]},$rounds,${"%.2f".format(java.util.Locale.ROOT, filled / maxOf(rounds, 1).toDouble())},$withoutClear")
             }
         }
         java.io.File(folder, "$name.csv").printWriter().use { file ->

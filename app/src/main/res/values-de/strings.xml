@@ -15,11 +15,11 @@
     <string name="main_measure_title">4. Genau messen</string>
     <string name="main_measure_text">Nach jedem Abbau warten, bis der Punktestand steht, damit das Protokoll zeigt, was jeder Stein eingebracht hat. Der Bot braucht dann fünf bis sechs Sekunden pro Abbau. Ausgeschaltet wartet er nur bei seltenen Abbau-Arten, deren Wert noch nicht bekannt ist. Gilt ab dem nächsten Start.</string>
     <string name="strategy_safe">Sicher</string>
-    <string name="strategy_safe_text">Gibt eine Combo früher auf, um das Feld offen zu halten. Die längsten Partien in der Simulation.</string>
+    <string name="strategy_safe_text">Gibt eine Combo früher auf, um das Feld offen zu halten. In der Simulation weniger Punkte, dafür ging keine Partie verloren.</string>
     <string name="strategy_balanced">Ausgewogen</string>
     <string name="strategy_balanced_text">Die Einstellung, die in simulierten Partien am meisten Punkte holte.</string>
     <string name="strategy_risky">Riskant</string>
-    <string name="strategy_risky_text">Verteidigt eine lange Combo mit höherem Preis fürs Feld. In der Simulation endeten die Partien früher und brachten weniger Punkte.</string>
+    <string name="strategy_risky_text">Verteidigt eine lange Combo mit noch höherem Preis fürs Feld. In der Simulation nicht mehr Punkte, aber mehr verlorene Partien.</string>
 
     <string name="service_description">Lässt BBBot Block Blast spielen: Der Dienst macht Screenshots, solange das Spiel im Vordergrund ist, und zieht die Steine aufs Spielfeld. BBBot liest keine Inhalte anderer Apps und sendet nichts irgendwohin.</string>
 

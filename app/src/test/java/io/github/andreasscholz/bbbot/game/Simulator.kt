@@ -9,6 +9,14 @@ data class GameResult(
     /** Points by a rough model of the game's scoring, see [Simulator]. */
     val score: Long,
     val longestCombo: Int,
+    /** The score after each round that was played to its end. */
+    val scoreByRound: List<Long> = emptyList(),
+    /** The length of the combo after each of those rounds. */
+    val comboByRound: List<Int> = emptyList(),
+    /** How many rounds went by without a clear. */
+    val roundsWithoutClear: Int = 0,
+    /** How many of those had pieces that could not have cleared anything. */
+    val roundsWithoutChance: Int = 0,
 )
 
 /**
@@ -45,6 +53,10 @@ class Simulator(
         var score = 0L
         var combo = 0
         var longestCombo = 0
+        val scores = ArrayList<Long>()
+        val combos = ArrayList<Int>()
+        var withoutClear = 0
+        var withoutChance = 0
         for (round in 0 until maxRounds) {
             val offered = offer(board, random)
             val plan = solver.solve(board, offered, Combo(length = combo))
@@ -63,10 +75,18 @@ class Simulator(
                 }
             }
             check(board == plan.board) { "The plan does not lead to the board it promises" }
-            if (!plan.complete) return GameResult(round, pieces, lines, score, longestCombo)
-            if (!cleared) combo = 0
+            if (!plan.complete) {
+                return GameResult(round, pieces, lines, score, longestCombo, scores, combos, withoutClear, withoutChance)
+            }
+            if (!cleared) {
+                combo = 0
+                withoutClear++
+                if (!plan.clearPossible) withoutChance++
+            }
+            scores += score
+            combos += combo
         }
-        return GameResult(maxRounds, pieces, lines, score, longestCombo)
+        return GameResult(maxRounds, pieces, lines, score, longestCombo, scores, combos, withoutClear, withoutChance)
     }
 
     /** A round as the game offers it: drawn again a few times if its pieces cannot all be placed. */

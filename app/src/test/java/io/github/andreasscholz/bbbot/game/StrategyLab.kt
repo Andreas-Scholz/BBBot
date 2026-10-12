@@ -13,6 +13,9 @@ import kotlin.random.Random
  * BBBOT_LAB=1 ./gradlew :app:testDebugUnitTest --tests '*StrategyLab*' -i | grep LAB
  * ```
  *
+ * With `BBBOT_LAB_OUT` set to a folder, it also writes two files per set there: `<name>.csv`
+ * with how the games stood after every round, and `<name>-games.csv` with how each one ended.
+ *
  * The games are played against uniformly drawn pieces and scored by the simulator's imitation
  * of the game, so the numbers rank the sets against each other and say little about the points
  * to expect on the phone.
@@ -21,6 +24,7 @@ class StrategyLab {
 
     private val games = (System.getenv("BBBOT_LAB_GAMES") ?: "192").toInt()
     private val maxRounds = (System.getenv("BBBOT_LAB_ROUNDS") ?: "1000").toInt()
+    private val out = System.getenv("BBBOT_LAB_OUT")?.let { java.io.File(it) }
 
     @Test
     fun `compare sets of weights`() {
@@ -59,5 +63,41 @@ class StrategyLab {
                 results.map { it.longestCombo }.average(),
             ),
         )
+        out?.let { write(it, name.replace(' ', '-'), results) }
+    }
+
+    /** A game that has ended keeps the score it ended with, so `mean` is what to expect from a game cut off there. */
+    private fun write(folder: java.io.File, name: String, results: List<GameResult>) {
+        folder.mkdirs()
+        java.io.File(folder, "$name-games.csv").printWriter().use { file ->
+            file.println("rounds,score,longest_combo,lines,rounds_without_clear,rounds_without_chance")
+            for (result in results) {
+                file.println(
+                    listOf(
+                        result.rounds, result.score, result.longestCombo, result.linesCleared,
+                        result.roundsWithoutClear, result.roundsWithoutChance,
+                    ).joinToString(","),
+                )
+            }
+        }
+        java.io.File(folder, "$name.csv").printWriter().use { file ->
+            file.println("round,alive,mean,p10,median,p90,mean_alive,combo_alive")
+            for (round in 1..maxRounds) {
+                val alive = results.filter { it.scoreByRound.size >= round }
+                val scores = results.map { it.scoreByRound.getOrNull(round - 1) ?: it.score }.sorted()
+                file.println(
+                    listOf(
+                        round,
+                        alive.size,
+                        scores.average().toLong(),
+                        scores[scores.size / 10],
+                        scores[scores.size / 2],
+                        scores[scores.size * 9 / 10],
+                        if (alive.isEmpty()) "" else alive.map { it.scoreByRound[round - 1] }.average().toLong(),
+                        if (alive.isEmpty()) "" else "%.1f".format(java.util.Locale.ROOT, alive.map { it.comboByRound[round - 1] }.average()),
+                    ).joinToString(","),
+                )
+            }
+        }
     }
 }

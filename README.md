@@ -187,8 +187,10 @@ traces of real games (see "Traces" below):
   100.33 to what a line is worth; 105 single clears in a row lay within a point of that line.
   An earlier game paid 76.10 per step for a long combo. Why is not known.
 - Two lines at once earn exactly twice a single line, three lines six times. Four lines
-  earned 14.4 single lines, measured twice; five earned about 20, measured once and less
-  surely. Six were not seen.
+  earned 14.4 single lines, measured twelve times between 14.2 and 14.4; five earned 19.95
+  and six 29.96, each measured once. Six is the most one piece can clear: three rows and
+  three columns with a 3×3 square, or five and one with a line of five. Of 6552 pieces
+  placed, 2279 cleared one line, 554 two, 198 three, 32 four, 2 five and 1 six.
 - A block placed earns a point, which reaches the score a second or two late.
 - A piece that empties the board earns 300 points on top of its clear, and nothing else
   changes: in one game the board was emptied eight times, at combos between 30 and 190
@@ -271,11 +273,22 @@ really hands out, single empty cells that are enclosed cost much more than they 
 edges somewhat more. At the same limit that made games 29 % longer and brought 28 % more
 points.
 
+The simulated game differs from the real one in two ways that pull in opposite directions.
+It ends much sooner: half of the simulated games are over after 250 rounds, while a real
+game was still running after more than a thousand. And it loses its combo much less often:
+once in 159 rounds, against once in 39 in the real game, where in 10 of 26 such rounds the
+pieces could not clear anything. Both clear 1.9 lines per round. So the game seems to pick
+pieces that fit but do not clear, and the strategy that is best here need not be the best
+on the phone.
+
 `StrategyLab` in the unit tests is the tool these numbers come from:
 
 ```sh
 BBBOT_LAB=1 ./gradlew :app:testDebugUnitTest --rerun --tests '*StrategyLab*' -i | grep LAB
 ```
+
+With `BBBOT_LAB_OUT` set to a folder it also writes, per strategy, how the games stood after
+every round and how each one ended, to draw charts from.
 
 Also tried there, and left out because it did not help or made things worse:
 

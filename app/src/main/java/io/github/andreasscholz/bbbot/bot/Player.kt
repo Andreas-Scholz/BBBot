@@ -249,9 +249,9 @@ class Player(
                 val placement = plan.placements.first()
 
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
-                // What four lines at once or an emptied board earn is not known yet, so those are
-                // always waited for; the trace then tells.
-                val waitForScore = measure || result.linesCleared >= 4 || result.board == Board.EMPTY
+                // What four and more lines at once earn was seen too rarely to be sure of, so
+                // those are always waited for; the trace then tells.
+                val waitForScore = measure || result.linesCleared >= 4
 
                 onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score))
                 trace.add(

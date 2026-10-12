@@ -63,7 +63,9 @@ and of the trace.
 
 "Measure exactly" in the app makes the bot wait after every clear until the score stands
 still. The game counts the score up over several seconds, so without that wait the trace
-cannot tell what a single piece earned. With it the bot needs five to six seconds per clear.
+cannot tell what a single piece earned. With it the bot needs five to six seconds per clear,
+so it is switched off unless asked for; four and more lines at once, which are rare and
+not measured often enough, are waited for either way.
 
 ### Traces
 

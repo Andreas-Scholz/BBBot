@@ -27,11 +27,12 @@ class BotSettings(context: Context) {
 
     /**
      * Whether the bot waits after every clear until the score stands still, so that the trace
-     * tells exactly what each piece earned. It makes the bot much slower. Without it the bot
-     * still waits for the few clears whose worth is not known yet.
+     * tells exactly what each piece earned. It makes the bot much slower, and what a clear
+     * earns is known by now, so it is off unless asked for. Without it the bot still waits for
+     * the few clears whose worth is not known for sure.
      */
     var measure: Boolean
-        get() = preferences.getBoolean(KEY_MEASURE, true)
+        get() = preferences.getBoolean(KEY_MEASURE, false)
         set(value) = preferences.edit { putBoolean(KEY_MEASURE, value) }
 
     /** The combo as the last run counted it, to go on with after the bot was started anew. */

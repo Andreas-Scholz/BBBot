@@ -5,8 +5,8 @@ import androidx.core.content.edit
 import io.github.andreasscholz.bbbot.game.Strategy
 import io.github.andreasscholz.bbbot.vision.KnownBoard
 
-/** The combo at a score: its length, and whether the round then had its clear. */
-data class SavedCombo(val length: Int, val clearedThisRound: Boolean, val score: Long)
+/** The combo at a score: its length, whether the round then had its clear, and the longest it has been in the game. */
+data class SavedCombo(val length: Int, val clearedThisRound: Boolean, val score: Long, val longest: Int = length)
 
 /** What the user chose in the app, and what the bot keeps, across restarts. */
 class BotSettings(context: Context) {
@@ -48,10 +48,11 @@ class BotSettings(context: Context) {
     var savedCombo: SavedCombo?
         get() {
             val parts = preferences.getString(KEY_COMBO, null)?.split(",") ?: return null
-            if (parts.size != 3) return null
-            return SavedCombo(parts[0].toIntOrNull() ?: return null, parts[1] == "true", parts[2].toLongOrNull() ?: return null)
+            if (parts.size !in 3..4) return null
+            val length = parts[0].toIntOrNull() ?: return null
+            return SavedCombo(length, parts[1] == "true", parts[2].toLongOrNull() ?: return null, parts.getOrNull(3)?.toIntOrNull() ?: length)
         }
-        set(value) = preferences.edit { putString(KEY_COMBO, value?.let { "${it.length},${it.clearedThisRound},${it.score}" }) }
+        set(value) = preferences.edit { putString(KEY_COMBO, value?.let { "${it.length},${it.clearedThisRound},${it.score},${it.longest}" }) }
 
     private companion object {
         const val KEY_COMBO = "combo"

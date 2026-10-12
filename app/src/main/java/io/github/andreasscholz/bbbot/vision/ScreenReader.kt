@@ -6,6 +6,9 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Where the 8×8 grid is on the screen, in pixels. */
+/** The reason [ScreenReader] gives when the bot's own panel lies on the board or on the pieces. */
+const val PANEL_COVERS_GAME = "the panel covers the game"
+
 data class BoardGeometry(val left: Float, val top: Float, val cellSize: Float) {
     val size: Float get() = cellSize * Board.SIZE
 
@@ -78,6 +81,13 @@ class ScreenReader(
      * that place still looks like a board.
      */
     var known: KnownBoard? = null
+
+    /**
+     * Where the bot's panel lies on the screen, if it is shown. It is painted over before the
+     * screen is read (see [Screenshot.paintOver]), so on the background it does no harm. On
+     * the board or on the pieces it would hide blocks, and the screen is not read then.
+     */
+    var panel: ScreenArea? = null
 
     private fun <T> reject(reason: String): T? {
         onReject(reason)
@@ -366,6 +376,15 @@ class ScreenReader(
         val bottom = minOf(shot.height - 1, frame.bottom + (frame.height * TRAY_BOTTOM).toInt())
         if (bottom <= top) return reject("no room for pieces below the board")
         val cell = geometry.cellSize * TRAY_SCALE
+        panel?.let { panel ->
+            // The pieces lie in the middle of their area and are five cells high at most.
+            val middle = (top + bottom) / 2
+            val reach = (cell * PIECE_REACH).toInt()
+            val beside = panel.right >= frame.left && panel.left <= frame.right
+            val onBoard = panel.bottom >= frame.top && panel.top <= frame.bottom
+            val onPieces = panel.bottom >= middle - reach && panel.top <= middle + reach
+            if (beside && (onBoard || onPieces)) return reject(PANEL_COVERS_GAME)
+        }
 
         val pieces = mutableListOf<TrayPiece>()
         for (slot in 0 until SLOTS) {
@@ -505,6 +524,9 @@ class ScreenReader(
         const val MAX_PIECE_SIZE = 5
 
         /** Size of a cell of an offered piece compared to a cell of the board. */
+        /** How far a piece can reach up and down from the middle of its area, in its own cells. */
+        const val PIECE_REACH = 3f
+
         const val TRAY_SCALE = 0.447f
 
         // The area searched for offered pieces, in board heights below the board.

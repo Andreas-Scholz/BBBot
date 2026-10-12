@@ -10,7 +10,9 @@ import io.github.andreasscholz.bbbot.game.Solver
 import io.github.andreasscholz.bbbot.vision.ComboIcon
 import io.github.andreasscholz.bbbot.vision.GameScreen
 import io.github.andreasscholz.bbbot.vision.MainMenu
+import io.github.andreasscholz.bbbot.vision.PANEL_COVERS_GAME
 import io.github.andreasscholz.bbbot.vision.ScoreReader
+import io.github.andreasscholz.bbbot.vision.ScreenArea
 import io.github.andreasscholz.bbbot.vision.ScreenReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -20,8 +22,18 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 /** What the bot is doing, for the panel. */
-/** [combo] is the number of pieces that cleared something since the combo began, as the bot counts it. */
-data class PlayStatus(val state: State, val moves: Int, val lines: Int, val score: Long? = null, val combo: Int = 0) {
+/**
+ * [combo] is the number of pieces that cleared something since the combo began, as the bot
+ * counts it, and [longest] the longest it has been in this game.
+ */
+data class PlayStatus(
+    val state: State,
+    val moves: Int,
+    val lines: Int,
+    val score: Long? = null,
+    val combo: Int = 0,
+    val longest: Int = 0,
+) {
     enum class State {
         /** Pieces are being placed. */
         PLAYING,
@@ -31,6 +43,9 @@ data class PlayStatus(val state: State, val moves: Int, val lines: Int, val scor
 
         /** The offered pieces do not all fit any more; the bot has stopped. */
         NO_MOVE,
+
+        /** The bot's own panel lies on the board or on the pieces. */
+        PANEL_IN_THE_WAY,
     }
 }
 
@@ -51,6 +66,8 @@ class Player(
     private val gameInFront: () -> Boolean = { true },
     /** Called when a look showed the game beyond doubt. */
     private val onGameSeen: () -> Unit = {},
+    /** Where the bot's panel lies on the screen, if it is shown. */
+    private val panel: () -> ScreenArea? = { null },
 ) {
     /** Called in endless play when a game is over, before anything of what follows is looked at. */
     var onGameOver: suspend () -> Unit = {}
@@ -74,6 +91,18 @@ class Player(
         // counted here: one for every piece that clears something, and over when a round of three
         // pieces went by without a clear.
         var comboLength = -1
+        // The longest the combo has been in this game.
+        var longestCombo = 0
+        // What the panel shows of the combo. Before the bot has seen the game, that is the combo
+        // as the last run left it, so that it stays in sight when the screen cannot be read.
+        fun status(state: PlayStatus.State, moves: Int, lines: Int, score: Long? = null): PlayStatus {
+            val saved = if (comboLength < 0) settings.savedCombo else null
+            return PlayStatus(
+                state, moves, lines, score,
+                combo = saved?.length ?: maxOf(comboLength, 0),
+                longest = saved?.longest ?: longestCombo,
+            )
+        }
         var clearedThisRound = false
         var lastTray = 0
         // The pieces of a round that is beginning, as the look before showed them.
@@ -103,12 +132,21 @@ class Player(
         try {
             while (true) {
                 val shot = screenCapture.capture()
+                // The panel lies on top of the game and is in every picture of the screen.
+                val covered = panel()
+                reader.panel = covered
+                if (covered != null) shot.paintOver(covered)
+                rejection = ""
                 val screen = withContext(Dispatchers.Default) { reader.read(shot) }
 
                 if (screen == null || screen.tray.isEmpty()) {
                     // Also seen briefly in every game while lines vanish and new pieces arrive.
                     unreadable++
-                    if (unreadable >= UNREADABLE_BEFORE_REPORT) onStatus(PlayStatus(PlayStatus.State.NO_GAME, moves, lines))
+                    if (rejection == PANEL_COVERS_GAME) {
+                        onStatus(status(PlayStatus.State.PANEL_IN_THE_WAY, moves, lines))
+                    } else if (unreadable >= UNREADABLE_BEFORE_REPORT) {
+                        onStatus(status(PlayStatus.State.NO_GAME, moves, lines))
+                    }
                     // With the notification shade or anything else of the system on top, the
                     // screen is none of the bot's business: nothing is kept of it or tapped on it.
                     if (screen == null && gameInFront()) {
@@ -142,6 +180,7 @@ class Player(
                     deadEnd = null
                     pending = null
                     comboLength = 0
+                    longestCombo = 0
                     clearedThisRound = false
                     lastTray = 0
                 }
@@ -225,6 +264,7 @@ class Player(
                         if (score != null && score >= saved.score && score - saved.score <= ScoreFilter.MAX_STEP) {
                             comboLength = saved.length
                             clearedThisRound = saved.clearedThisRound
+                            longestCombo = saved.longest
                         }
                     }
                 }
@@ -246,7 +286,8 @@ class Player(
                 }
                 lastTray = screen.tray.size
 
-                if (score != null) settings.savedCombo = SavedCombo(comboLength, clearedThisRound, score)
+                longestCombo = maxOf(longestCombo, comboLength)
+                if (score != null) settings.savedCombo = SavedCombo(comboLength, clearedThisRound, score, longestCombo)
                 val solveStarted = SystemClock.elapsedRealtime()
                 val plan = withContext(Dispatchers.Default) {
                     solver.solve(screen.board, screen.tray.map { it.piece }, Combo(comboLength, clearedThisRound))
@@ -285,7 +326,7 @@ class Player(
                             solveMillis = solveMillis,
                         ),
                     )
-                    onStatus(PlayStatus(PlayStatus.State.NO_MOVE, moves, lines, score))
+                    onStatus(status(PlayStatus.State.NO_MOVE, moves, lines, score))
                     }
                     if (stuck) {
                         if (!endless) return
@@ -309,7 +350,7 @@ class Player(
                 // those are always waited for; the trace then tells.
                 val waitForScore = measure || result.linesCleared >= 4
 
-                onStatus(PlayStatus(PlayStatus.State.PLAYING, moves, lines, score, combo = maxOf(comboLength, 0)))
+                onStatus(status(PlayStatus.State.PLAYING, moves, lines, score))
                 trace.add(
                     shot,
                     TraceStep(
@@ -344,7 +385,7 @@ class Player(
                         // Kept as it will be once the piece has landed: a run that is ended
                         // right now, by a new version for example, would otherwise leave behind
                         // a round without a clear, and the next run would take the combo for lost.
-                        settings.savedCombo = SavedCombo(comboLength + 1, clearedThisRound = true, score)
+                        settings.savedCombo = SavedCombo(comboLength + 1, clearedThisRound = true, score, maxOf(longestCombo, comboLength + 1))
                     }
                     delay(if (result.linesCleared > 0) CLEAR_MS else SETTLE_MS)
                 } else {

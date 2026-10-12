@@ -12,6 +12,7 @@ import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.TextView
 import io.github.andreasscholz.bbbot.R
+import io.github.andreasscholz.bbbot.vision.ScreenArea
 import kotlin.math.abs
 
 /**
@@ -49,11 +50,25 @@ class BotOverlay(
     var isShown = false
         private set
 
+    /** Where the panel lies on the screen, or null while it is not shown. Read by the player from its own thread. */
+    @Volatile
+    var area: ScreenArea? = null
+        private set
+
     init {
         toggle.setOnClickListener { onToggle() }
         root.findViewById<View>(R.id.overlay_capture).setOnClickListener { onCapture() }
         root.findViewById<View>(R.id.overlay_hide).setOnClickListener { onHide() }
         makeDraggable(status, ViewConfiguration.get(service).scaledTouchSlop)
+        // Laid out anew whenever its text changes or it is moved.
+        root.viewTreeObserver.addOnGlobalLayoutListener(::noteArea)
+    }
+
+    private fun noteArea() {
+        if (!isShown || root.width == 0) return
+        val corner = IntArray(2)
+        root.getLocationOnScreen(corner)
+        area = ScreenArea(corner[0], corner[1], corner[0] + root.width - 1, corner[1] + root.height - 1)
     }
 
     fun show() {
@@ -66,6 +81,7 @@ class BotOverlay(
         if (!isShown) return
         windowManager.removeView(root)
         isShown = false
+        area = null
     }
 
     fun setStatus(text: CharSequence) {
@@ -103,6 +119,7 @@ class BotOverlay(
                         // The panel hangs from the bottom of the screen, so its y counts upwards.
                         params.y = startY - dy.toInt()
                         windowManager.updateViewLayout(root, params)
+                        root.post(::noteArea)
                     }
                 }
             }

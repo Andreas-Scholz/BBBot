@@ -27,13 +27,15 @@
     <string name="service_description">Lets BBBot play Block Blast: it takes screenshots while the game is in front and drags the pieces onto the board. BBBot does not read the contents of other apps and sends nothing anywhere.</string>
 
     <string name="overlay_ready">BBBot is ready</string>
+    <string name="overlay_ready_combo">BBBot is ready\nCombo %1$d · longest %2$d</string>
+    <string name="overlay_panel_in_the_way">The panel covers the game\nDrag it away by this text</string>
     <string name="overlay_start">Start playing</string>
     <string name="overlay_stop">Stop playing</string>
-    <string name="overlay_stopped">Stopped · Moves %1$d\nLongest combo %3$d · Lines %2$d</string>
-    <string name="overlay_playing">Combo %4$d · longest %5$d\n%3$s · Moves %1$d</string>
-    <string name="overlay_no_game">No game in sight · Moves: %1$d</string>
-    <string name="overlay_no_move">No room for all pieces · Moves: %1$d · Screenshot saved</string>
-    <string name="overlay_error">Stopped by an error</string>
+    <string name="overlay_stopped">Stopped · Moves %1$d\nCombo %2$d · longest %3$d</string>
+    <string name="overlay_playing">Combo %3$d · longest %4$d\n%2$s · Moves %1$d</string>
+    <string name="overlay_no_game">No game in sight\nCombo %1$d · longest %2$d</string>
+    <string name="overlay_no_move">No room for all pieces\nCombo %1$d · longest %2$d</string>
+    <string name="overlay_error">Stopped by an error\nCombo %1$d · longest %2$d</string>
     <string name="overlay_hide">Hide the panel</string>
     <string name="overlay_capture">Save a screenshot</string>
     <string name="overlay_saved">Saved %1$s</string>

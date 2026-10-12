@@ -11,8 +11,8 @@ android {
         applicationId = "io.github.andreasscholz.bbbot"
         minSdk = 33
         targetSdk = 36
-        versionCode = 27
-        versionName = "0.10.4"
+        versionCode = 28
+        versionName = "0.11.0"
     }
 
     buildTypes {

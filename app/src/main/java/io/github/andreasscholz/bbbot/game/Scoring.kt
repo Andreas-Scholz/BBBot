@@ -31,6 +31,33 @@ object Scoring {
         else -> 100
     }
 
+    /**
+     * What a single line earns to the point with a combo of [comboLength] pieces. On top of the
+     * length times the step the game pays a little more, about a point for every three pieces.
+     */
+    private fun singleLine(comboLength: Int): Double = when {
+        comboLength <= 5 -> comboLength * 50.0 + 1
+        comboLength <= 10 -> comboLength * 75.0 + 3
+        else -> comboLength * (100 + 1 / 3.0)
+    }
+
+    /**
+     * The length of the combo, the clearing piece included, read off the [points] that piece
+     * earned by clearing [lines] lines; null when no length fits them. This is how the bot
+     * learns the combo of a game it joined in the middle. The number the game itself shows
+     * after a clear is one less: it does not count the piece that began the combo.
+     */
+    fun comboLength(points: Long, lines: Int, emptiedBoard: Boolean): Int? {
+        if (lines !in 1..3) return null
+        val single = (points - if (emptiedBoard) EMPTIED_BOARD else 0) / worth(lines)
+        val guess = Math.round(single / (100 + 1 / 3.0)).toInt()
+        val best = ((1..10) + (guess - 1..guess + 1)).filter { it >= 1 }.minBy { Math.abs(singleLine(it) - single) }
+        return best.takeIf { Math.abs(singleLine(it) - single) <= FITS }
+    }
+
+    /** How far the points for a single line may be from what a combo pays and still be taken for it. */
+    private const val FITS = 15.0
+
     /** The points for clearing [lines] lines with the piece that makes the combo [comboLength] long. */
     fun clear(lines: Int, comboLength: Int, emptiedBoard: Boolean): Long =
         Math.round(worth(lines) * step(comboLength) * comboLength) + if (emptiedBoard) EMPTIED_BOARD else 0

@@ -5,6 +5,7 @@ import android.util.Log
 import io.github.andreasscholz.bbbot.game.Board
 import io.github.andreasscholz.bbbot.game.Combo
 import io.github.andreasscholz.bbbot.game.HeuristicEvaluator
+import io.github.andreasscholz.bbbot.game.Scoring
 import io.github.andreasscholz.bbbot.game.Piece
 import io.github.andreasscholz.bbbot.game.Solver
 import io.github.andreasscholz.bbbot.vision.ComboIcon
@@ -23,8 +24,9 @@ import kotlin.math.abs
 
 /** What the bot is doing, for the panel. */
 /**
- * [combo] is the number of pieces that cleared something since the combo began, as the bot
- * counts it, and [longest] the longest it has been in this game.
+ * [combo] is the combo as the game shows it after a clear, and [longest] the longest it has
+ * been in this game. [comboKnown] tells whether it was measured in this run or is still what
+ * the bot took over or assumed.
  */
 data class PlayStatus(
     val state: State,
@@ -33,6 +35,7 @@ data class PlayStatus(
     val score: Long? = null,
     val combo: Int = 0,
     val longest: Int = 0,
+    val comboKnown: Boolean = false,
 ) {
     enum class State {
         /** Pieces are being placed. */
@@ -93,14 +96,32 @@ class Player(
         var comboLength = -1
         // The longest the combo has been in this game.
         var longestCombo = 0
-        // What the panel shows of the combo. Before the bot has seen the game, that is the combo
-        // as the last run left it, so that it stays in sight when the screen cannot be read.
+        // The game does not tell the length of a combo that is running when the bot joins, and
+        // a count that starts from a guess stays wrong for as long as the combo lasts. But what
+        // a clear earns tells it to the piece (see [Scoring.comboLength]). So the bot measures:
+        // it lets the score settle after one clearing piece and again after the next, and reads
+        // the length off the difference. It does so at the start of a run and then every now
+        // and then, because each time costs a few seconds.
+        var comboKnown = false
+        var clearingPieces = 0
+        var clearsAtCheck = 0
+        // The score when it last stood still after a clear, and what was placed since.
+        var settledScore: Long? = null
+        var cellsSince = 0
+        var clearsSince = 0
+        var linesOfClear = 0
+        var clearEmptied = false
+        // What the panel shows of the combo: the number the game shows after a clear, which
+        // does not count the piece that began the combo. Before the bot has seen the game, that
+        // is the combo as the last run left it, so that it stays in sight when the screen
+        // cannot be read.
         fun status(state: PlayStatus.State, moves: Int, lines: Int, score: Long? = null): PlayStatus {
             val saved = if (comboLength < 0) settings.savedCombo else null
             return PlayStatus(
                 state, moves, lines, score,
-                combo = saved?.length ?: maxOf(comboLength, 0),
-                longest = saved?.longest ?: longestCombo,
+                combo = maxOf((saved?.length ?: comboLength) - 1, 0),
+                longest = maxOf((saved?.longest ?: longestCombo) - 1, 0),
+                comboKnown = comboKnown,
             )
         }
         var clearedThisRound = false
@@ -204,11 +225,17 @@ class Player(
                     if (screen.board != move.before) {
                         moves++
                         rejected = 0
+                        cellsSince += move.cells
                         // Fewer blocks than the piece added means that lines were cleared.
                         val cleared = screen.board.filledCount < move.before.filledCount + move.cells
                         if (cleared) {
                             comboLength++
                             clearedThisRound = true
+                            clearingPieces++
+                            // A clear that did not go as planned cannot be measured.
+                            clearsSince += if (screen.board == move.expected) 1 else 2
+                            linesOfClear = move.lines
+                            clearEmptied = move.expected == Board.EMPTY
                         }
                     } else if (++rejected == REJECTED_BEFORE_SAVE) {
                         // The game keeps refusing the move, so the bot misreads something.
@@ -238,6 +265,26 @@ class Player(
                     scoreLooks++
                     delay(SCORE_MS)
                     continue
+                }
+                if (scoreMoving) {
+                    val before = settledScore
+                    settledScore = score?.takeIf { counted && (measure || exact) }
+                    val now = settledScore
+                    if (before != null && now != null && clearsSince == 1 && comboLength >= 0) {
+                        val measured = Scoring.comboLength(now - before - cellsSince, linesOfClear, clearEmptied)
+                        if (measured != null) {
+                            if (measured != comboLength) {
+                                Log.i(TAG, "The combo is $measured long, not $comboLength")
+                                // What was counted on top of a wrong start is off by as much.
+                                longestCombo = maxOf(measured, longestCombo + measured - comboLength)
+                                comboLength = measured
+                            }
+                            comboKnown = true
+                            clearsAtCheck = clearingPieces
+                        }
+                    }
+                    cellsSince = 0
+                    clearsSince = 0
                 }
                 exact = false
                 scoreMoving = false
@@ -348,7 +395,8 @@ class Player(
                 val result = screen.board.place(placement.piece, placement.row, placement.col)
                 // What four and more lines at once earn was seen too rarely to be sure of, so
                 // those are always waited for; the trace then tells.
-                val waitForScore = measure || result.linesCleared >= 4
+                val measuring = !comboKnown || clearingPieces - clearsAtCheck >= COMBO_CHECK_EVERY
+                val waitForScore = measure || result.linesCleared >= 4 || result.linesCleared > 0 && measuring
 
                 onStatus(status(PlayStatus.State.PLAYING, moves, lines, score))
                 trace.add(
@@ -469,6 +517,9 @@ class Player(
         const val OVER_MS = 1000L
         const val PICTURES_AFTER = 40
         const val LOOKS_PER_PICTURE = 10
+
+        /** After how many clearing pieces the length of the combo is measured again. */
+        const val COMBO_CHECK_EVERY = 250
 
         const val MENU_LOOKS = 3
         const val TAP_MS = 60L

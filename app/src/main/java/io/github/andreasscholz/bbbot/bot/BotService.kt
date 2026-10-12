@@ -62,7 +62,7 @@ class BotService : AccessibilityService() {
         settings = BotSettings(this)
         val combo = settings.savedCombo
         overlay.setStatus(
-            if (combo == null) getString(R.string.overlay_ready) else getString(R.string.overlay_ready_combo, combo.length, combo.longest),
+            if (combo == null) getString(R.string.overlay_ready) else getString(R.string.overlay_ready_combo, maxOf(combo.length - 1, 0), maxOf(combo.longest - 1, 0)),
         )
         gameLog = GameLog(this)
         mutableConnected.value = true
@@ -190,7 +190,11 @@ class BotService : AccessibilityService() {
         }
         val text = when (status.state) {
             PlayStatus.State.PLAYING ->
-                getString(R.string.overlay_playing, status.moves, getString(strategy.label), status.combo, status.longest)
+                getString(
+                    R.string.overlay_playing, status.moves, getString(strategy.label),
+                    // A combo that was not measured yet is marked as a guess.
+                    if (status.comboKnown) status.combo.toString() else "${status.combo}?", status.longest,
+                )
             PlayStatus.State.NO_GAME -> getString(R.string.overlay_no_game, status.combo, status.longest)
             PlayStatus.State.NO_MOVE -> getString(R.string.overlay_no_move, status.combo, status.longest)
             PlayStatus.State.PANEL_IN_THE_WAY -> getString(R.string.overlay_panel_in_the_way)

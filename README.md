@@ -172,6 +172,10 @@ taps nothing there.
 When the game was started anew and waits in its main menu, the bot taps "Classic" to go on
 with the game. That is the only thing it taps that is not a piece.
 
+When the bot has not placed a piece for 45 seconds although it should, it rings and
+vibrates, and again five and ten minutes later: the game is over, something else is on the
+screen, or the bot cannot read the game. This can be switched off in the app.
+
 While the notification shade, the lock screen or anything else of the system may lie on top
 of the game, the bot keeps no picture of the screen and taps nothing. It goes on when it
 sees the game again.

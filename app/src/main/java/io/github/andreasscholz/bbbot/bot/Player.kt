@@ -185,7 +185,7 @@ class Player(
                             // What the game shows between two games is not known yet.
                             captureStore.save(shot, "after")
                             picturesAfter++
-                        } else if (unreadable == UNREADABLE_BEFORE_SAVE) {
+                        } else if (unreadable == UNREADABLE_BEFORE_SAVE && rejection != PANEL_COVERS_GAME) {
                             val file = captureStore.save(shot, "unreadable")
                             Log.i(TAG, "Cannot read the screen after $moves moves ($rejection), saved ${file.name}")
                         }

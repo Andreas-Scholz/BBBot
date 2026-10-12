@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- To tell the user when the bot has come to a halt. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!-- To offer starting the game from the app. -->
     <queries>
         <package android:name="com.block.juggle" />

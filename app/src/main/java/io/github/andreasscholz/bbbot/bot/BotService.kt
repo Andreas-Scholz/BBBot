@@ -2,6 +2,9 @@ package io.github.andreasscholz.bbbot.bot
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.media.RingtoneManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -53,6 +56,11 @@ class BotService : AccessibilityService() {
 
     /** Whether the user has put the panel away. */
     private var hidden = false
+
+    // Since when the bot has not been placing pieces although it should, and when it last said so.
+    private var haltedSince = 0L
+    private var alertedAt = 0L
+    private var alerts = 0
     private var lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
 
     override fun onServiceConnected() {
@@ -116,6 +124,8 @@ class BotService : AccessibilityService() {
         val trace = Trace(this)
         val player = Player(screenCapture, Finger(this), captureStore, solver, trace, settings, onStatus = ::showStatus, gameInFront = { !covered }, onGameSeen = { covered = false }, panel = { overlay.area })
         firstScore = null
+        haltedSince = 0
+        alerts = 0
         lastStatus = PlayStatus(PlayStatus.State.PLAYING, moves = 0, lines = 0)
         showStatus(lastStatus)
         overlay.setPlaying(true)
@@ -158,6 +168,7 @@ class BotService : AccessibilityService() {
                 val file = saveScreenshot("${CaptureStore.FINAL_PREFIX}-${played.name.lowercase()}")
                 log("no_room", file.name)
                 overlay.setStatus(getString(R.string.overlay_no_move, lastStatus.combo, lastStatus.longest))
+                alert()
                 // What the game shows when it is over is not known yet. A few pictures of what
                 // follows are kept, to teach the bot to start a new game by itself one day.
                 repeat(AFTER_PICTURES) {
@@ -170,6 +181,7 @@ class BotService : AccessibilityService() {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Playing failed", e)
+                alert()
                 overlay.setStatus(getString(R.string.overlay_error, lastStatus.combo, lastStatus.longest))
             } finally {
                 overlay.setPlaying(false)
@@ -182,8 +194,37 @@ class BotService : AccessibilityService() {
         playing = null
     }
 
+    /**
+     * Rings and vibrates, if the user wants that, to say that the bot has come to a halt: the
+     * game is over, something else is on the screen, or the bot cannot read it.
+     */
+    private fun alert() {
+        if (!settings.alert) return
+        Log.i(TAG, "Telling the user that the bot has halted")
+        runCatching { RingtoneManager.getRingtone(this, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.play() }
+        runCatching { getSystemService(Vibrator::class.java)?.vibrate(VibrationEffect.createWaveform(ALERT_PATTERN, -1)) }
+    }
+
+    /** Says so when the bot has not placed a piece for a while, and again now and then, a few times in all. */
+    private fun noteHalt(halted: Boolean) {
+        val now = SystemClock.elapsedRealtime()
+        if (!halted) {
+            haltedSince = 0
+            alerts = 0
+            return
+        }
+        if (haltedSince == 0L) haltedSince = now
+        val due = if (alerts == 0) haltedSince + ALERT_AFTER_MS else alertedAt + ALERT_AGAIN_MS
+        if (alerts < ALERTS && now >= due) {
+            alerts++
+            alertedAt = now
+            alert()
+        }
+    }
+
     private fun showStatus(status: PlayStatus) {
         lastStatus = status
+        noteHalt(status.state != PlayStatus.State.PLAYING)
         if (status.score != null) {
             if (firstScore == null) firstScore = status.score
             lastScore = status.score
@@ -236,6 +277,12 @@ class BotService : AccessibilityService() {
         private const val AFTER_PICTURES = 20
         private const val AFTER_MS = 5000L
         private const val NOTE_MS = 20_000L
+
+        // The bot says that it has halted after this long, and then a few times more.
+        private const val ALERT_AFTER_MS = 45_000L
+        private const val ALERT_AGAIN_MS = 300_000L
+        private const val ALERTS = 3
+        private val ALERT_PATTERN = longArrayOf(0, 300, 200, 300)
 
         private val mutableConnected = MutableStateFlow(false)
 

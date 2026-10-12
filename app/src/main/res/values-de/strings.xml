@@ -16,6 +16,8 @@
     <string name="main_measure_text">Nach jedem Abbau warten, bis der Punktestand steht, damit das Protokoll zeigt, was jeder Stein eingebracht hat. Der Bot braucht dann fünf bis sechs Sekunden pro Abbau. Ausgeschaltet wartet er nur bei seltenen Abbau-Arten, deren Wert noch nicht bekannt ist. Gilt ab dem nächsten Start.</string>
     <string name="main_endless_title">5. Endlos</string>
     <string name="main_endless_text">Ausgeschaltet hält der Bot an, sobald nicht mehr alle Steine passen, und überlässt dir die letzten Steine. Eingeschaltet setzt er, was noch passt, womit die Partie endet, und spielt mit der nächsten Partie weiter. An den Bildschirmen und der Werbung dazwischen kommt er noch nicht selbst vorbei; er speichert Bilder davon, um es zu lernen. Gilt ab dem nächsten Start.</string>
+    <string name="main_alert_title">6. Bescheid geben, wenn er steht</string>
+    <string name="main_alert_text">Der Bot klingelt und vibriert, wenn er 45 Sekunden lang keinen Stein gesetzt hat, obwohl er spielen soll: Die Partie ist zu Ende, etwas anderes liegt auf dem Bildschirm, oder er kann das Spiel nicht lesen. Er meldet sich bis zu dreimal im Abstand von fünf Minuten. Wenn du ihn selbst stoppst, bleibt er still.</string>
     <string name="strategy_safe">Sicher</string>
     <string name="strategy_safe_text">Gibt eine Combo früher auf, um das Feld offen zu halten. In der Simulation weniger Punkte, dafür ging keine Partie verloren.</string>
     <string name="strategy_balanced">Ausgewogen</string>

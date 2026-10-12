@@ -92,6 +92,7 @@ private fun MainScreen() {
         StrategyChoice(settings)
         MeasureSwitch(settings)
             EndlessSwitch(settings)
+            AlertSwitch(settings)
     }
 }
 
@@ -178,6 +179,31 @@ private fun EndlessSwitch(settings: BotSettings) {
             onCheckedChange = {
                 endless = it
                 settings.endless = it
+            },
+        )
+    }
+}
+
+@Composable
+private fun AlertSwitch(settings: BotSettings) {
+    var alert by remember { mutableStateOf(settings.alert) }
+
+    Text(
+        text = stringResource(R.string.main_alert_title),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(top = 32.dp),
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+        Text(
+            text = stringResource(R.string.main_alert_text),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f).padding(end = 16.dp),
+        )
+        Switch(
+            checked = alert,
+            onCheckedChange = {
+                alert = it
+                settings.alert = it
             },
         )
     }

@@ -60,7 +60,9 @@ screenshot of the board and the score (`final-<strategy>-…`), so the end of ev
 looked at afterwards. Every run is also added to `runs.csv` in the same folder, with the
 strategy, the reason it ended (`no_room` or `stopped`), the pieces placed, the lines cleared,
 the seconds it took, the score at its start and at its end, and the names of the screenshot
-and of the trace.
+and of the trace. A run that was cut short, by a new version being installed for example, is
+added as `interrupted` the next time the bot plays, as far as it had got twenty seconds
+before its end at the latest.
 
 "Measure exactly" in the app makes the bot wait after every clear until the score stands
 still. The game counts the score up over several seconds, so without that wait the trace
@@ -322,7 +324,8 @@ because it did not help or made things worse:
 - trying the best sequences against whole rounds drawn at random and counting in how many a
   line can be cleared and in how many the pieces do not fit (`RoundSampler`, switched off).
   Against pieces drawn evenly it made games 11 % longer and brought 11 % more points; against
-  pieces drawn the way the game draws them it made games shorter,
+  pieces drawn the way the game draws them it made games shorter, and against the simulator
+  that deals like the game it brought 6 % fewer points,
 - more weight on room for the 3×3 square, although it is the most common piece (shorter
   games),
 
@@ -425,6 +428,10 @@ On the phone the new worth of a combo did what the simulator said it would. In t
 339 rounds played with it the combo was lost twice, once with pieces that could not clear
 anything, where it had been lost once in 46 rounds before; the board held 20.5 blocks on
 average, where the simulator has 23.9; and the score went from 130 to 180 million.
+
+The same shows when the 28 rounds that lost a combo although a line could have been cleared
+are played again by the solver: with the old weights it clears a line in 6 of them, with
+the new ones in 24.
 
 What the simulator still gets wrong: on the phone a young combo of 5 to 19 pieces was lost
 in one round of 17, in the simulator, with the same solver, in one of 50. So the pieces the

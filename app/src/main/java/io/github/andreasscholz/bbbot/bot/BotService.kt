@@ -124,7 +124,20 @@ class BotService : AccessibilityService() {
         }
         playing = scope.launch {
             try {
-                player.play()
+                gameLog.recover()
+                // A run that is cut short leaves no chance to put it on record, so it is noted
+                // as it goes.
+                val noting = launch {
+                    while (true) {
+                        delay(NOTE_MS)
+                        gameLog.keep(played, lastStatus.moves, lastStatus.lines, (SystemClock.elapsedRealtime() - started) / 1000, firstScore, lastScore, trace.name)
+                    }
+                }
+                try {
+                    player.play()
+                } finally {
+                    noting.cancel()
+                }
                 // The pieces no longer fit: keep a picture of how the game ends, named after the
                 // strategy that played it.
                 val file = saveScreenshot("${CaptureStore.FINAL_PREFIX}-${played.name.lowercase()}")
@@ -202,6 +215,7 @@ class BotService : AccessibilityService() {
         private const val PANEL_HIDE_MS = 150L
         private const val AFTER_PICTURES = 20
         private const val AFTER_MS = 5000L
+        private const val NOTE_MS = 20_000L
 
         private val mutableConnected = MutableStateFlow(false)
 
